@@ -171,8 +171,7 @@ present, and fail if the control comes back empty. Four instances, all real:
   request, a real response, a control that passes cleanly, and an answer that means
   nothing.
 
-  So **demand testimony from the answer's content**, which subsumes the control, because an
-  unreachable index returns no answer to read. Three outcomes instead of two — named,
+  So **demand testimony from the answer's content.** Three outcomes instead of two — named,
   stated-absent, unproven:
 
   ```sh
@@ -189,6 +188,32 @@ present, and fail if the control comes back empty. Four instances, all real:
   the fallthrough refuses. Never lift it into a check that treats an empty answer as fine.
   Reading the status code would be equivalent, but `%{http_code}` and `= 404` are bare
   numerals that this workspace refuses to write, so content is the writable spelling.
+
+  **Keep the positive control anyway, and point it at the positive branch.** Content covers
+  transport silence, so the control looks redundant — it is not, because "unproven" is also
+  what a *broken expression* produces. A `jq` path that can no longer recognise a published
+  project refuses forever while the registry answers perfectly, and the operator blames the
+  registry. That is the fail-*closed* twin of this bug: equally invisible locally, equally
+  wrong. So assert that the check can still see something that certainly exists, and say
+  which side is broken:
+
+  ```sh
+  curl -s "https://pypi.org/pypi/pip/json" | jq -e '.info.name' >/dev/null || {
+    echo "::error::this step cannot recognise a project PyPI definitely serves,"\
+         "so its verdict is meaningless"; false; }
+  ```
+
+  One more asymmetry decides how much that control has to carry: **does the registry name
+  your subject back?** crates.io echoes it (``crate `x` does not exist``) and is therefore
+  self-validating. PyPI and npm answer generically, so a lookup of the *wrong or empty*
+  name reads as proven absence — and the name usually comes from parsing a manifest, which
+  yields empty the moment `[project] name` moves or turns dynamic. Where the registry does
+  not name the subject, assert the input, or control the request shape, or both.
+
+  Do not branch on a specific exit code either: on `.info.name` over a body with no
+  `.info`, `jq` exits 1 while `jaq` exits 5. Both are non-zero, so a truthiness test is
+  portable and an exit-code comparison is not — and on this workstation the bare `jq` on
+  PATH is `jaq`, so "I tested with jq" may not mean what you think.
 
   And if your check mixes shell and Python, a stubbed `curl` does not exercise the Python
   path: it keeps real network and *looks* verified. Break both transports, or your proof
