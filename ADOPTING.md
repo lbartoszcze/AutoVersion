@@ -147,6 +147,55 @@ nothing reached a package index: a tag is something somebody installed. If a tag
 disagrees with the version inside it, use the tag that really contains that version and
 report the mismatch.
 
+### Every negative needs a positive control
+
+This is the one rule the wave earned the hard way, and it generalises every bug found in
+it: **absence inferred from a probe that may not have run is not evidence.** A probe that
+silently did nothing and a probe that ran and found nothing return the same answer, and
+the wrong reading is always the passing one.
+
+So beside every assertion of absence, run the same probe against something you know is
+present, and fail if the control comes back empty. Four instances, all real:
+
+- **The reverse assertion is fail-open.** "This project is on no registry" is normally
+  written as `curl -sSf … || echo not published`. But curl also fails on no egress, DNS
+  failure, or the registry being down, and at that level those are indistinguishable from
+  the answer you meant to read. So the step concludes "nothing is published, the baseline
+  is honest" *precisely when it made no successful request*. Control first, assertion
+  second:
+
+  ```sh
+  curl -sSf "https://pypi.org/pypi/pip/json" >/dev/null || {
+    echo "::error::cannot reach PyPI, so the absence of $project is unproven"; false; }
+  ```
+
+  This is worse than a stale baseline: that one needed a tag to appear before it mattered,
+  this one is wrong on every network hiccup.
+
+- **Ask the right store.** A channel probe that queries the wrong surface reports absence
+  for objects that demonstrably exist, on every invocation, with a zero exit. A reverse
+  assertion written that way passes unconditionally forever and certifies nothing; a
+  forward one fails forever and goes red the day the outage lifts, when everyone will
+  assume the surface changed. The control — a product you know is published — is what
+  catches it, because the subject's answer looks perfect either way.
+
+- **A search that found nothing may not have looked.** Before reporting "no repository
+  pins this", run a pattern that must match through the same paths. This wave caught a
+  directory renamed mid-task that way: the sweep reported a clean negative, and the
+  control revealed the path had gone missing rather than been read.
+
+- **The runner is not your laptop.** Our clones have exactly the refs and history a
+  runner lacks, a bias in one direction, so exercise the committed step bodies inside
+  `git clone --depth 1 --no-tags`. It is the only local technique in this fleet that can
+  falsify a claim about CI.
+
+And keep the epistemics honest in what you write down. The remote can tell you a project
+has no tags and no releases **now**; it cannot tell you it never had any, because a
+deleted ref leaves no trace once the event window expires. Write "not released now,
+established at the remote" and not "never released" — unless your ground is packaging, in
+which case the distinction is moot: with no manifest, no artifact could ever have carried
+a version, whether or not a ref once existed.
+
 Read the marker as a token, never by matching prose:
 
 ```sh
