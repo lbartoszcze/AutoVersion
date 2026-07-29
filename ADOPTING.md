@@ -396,6 +396,21 @@ the URI gives `present` with a size, the bare path gives `absent`. That cost thr
 two mistakes each, in both directions, before anyone ran the control through both
 spellings.
 
+And **the same access, not just the same spelling.** A control needing wider credentials than
+the subject is not a control; it is a second subject. Measured in this fleet: one gate's positive
+control queried a *different, private* repository, and `secrets.GITHUB_TOKEN` on a runner is
+scoped to the repository being built — so on every run it would receive a clean 404 for a
+repository that demonstrably has releases, conclude its own verdict was worthless, and refuse.
+Permanently red, and red for a reason nobody would guess from the message. Prefer a control on
+the **same repository** you are already asking about; failing that, one that is explicitly
+public.
+
+There is a companion mistake on the reading side, and an agent here caught themselves in it:
+they read a workflow out of a clone taken at the start of their work and ran their arms against
+a clone taken later, after the branch had moved, then drew one conclusion from both. The read
+and the run were different objects. Pin the revision you are asserting about and check that both
+halves of your evidence come from it.
+
 Class 2 also has a shape worth knowing, because one registry makes it indistinguishable by
 structure alone. PyPI states absence unambiguously (`{"message": "Not Found"}`), but
 crates.io returns the *same* envelope for "no such crate" and for a policy refusal —
