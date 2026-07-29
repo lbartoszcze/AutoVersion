@@ -105,10 +105,18 @@ version it is — five crates in a workspace that build one binary, ten values n
 inherited. Two genuinely separate artifacts, each carrying its own version, are not that
 case; they are two products sharing a directory.
 
-And when their surfaces have already drifted apart while both manifests still declare the
-same number — which is what one repository here turned out to be doing, with six exports on
-one side that the other lacks and a docstring claiming the two mirror each other — that is
-not an argument for refusing. It is the defect a gate exists to catch, sitting in the open.
+And when their surfaces have already drifted while both manifests still declare the same
+number — which is what one repository here turned out to be doing, with four types exported
+from the npm side that have no counterpart in the PyPI one, both manifests reading 0.1.0 —
+that is not an argument for refusing. It is the defect a gate exists to catch, lying open.
+
+That example arrives with a warning attached, because the first version of it was wrong. The
+agent who found it first reported a wider drift — sink methods present on one side and absent
+on the other — using a scanner that read from a class header to the end of the *file*, so
+members of a later class were attributed to earlier ones. Read properly, those methods pair
+exactly. It is precisely the failure this document warns about in extractors, committed in the
+tool used to diagnose it, and it is why a surface reader must track class boundaries and fail
+loudly rather than guess.
 
 ### A refusal needs a condition that revokes it
 
