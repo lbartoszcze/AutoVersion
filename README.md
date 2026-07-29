@@ -76,12 +76,27 @@ it currently fails to catch.
 - network or filesystem access beyond the surface a caller handed over
 - a second way to answer the same question
 
+## Adopting it
+
+[`ADOPTING.md`](ADOPTING.md) is the operational half: how to decide whether the rule
+applies to a repository at all, how to choose a surface, where a baseline comes from,
+and the refusals that are correct outcomes rather than failures.
+
+**Read it from `main`.** It postdates the `v0.1.0` tag, so a checkout of the pinned
+install does not contain it — three adopting repositories reported that independently.
+Pinning `@v0.1.0` for the install remains right: the rule's surface is unchanged since
+that tag, which the repository's own frozen baseline records.
+
 ## A note on its own version
 
 AutoVersion carries no version literal in its manifest; the packaged version comes
 from the git tag. That is not a stylistic choice — the workspace this was written in
 refuses numeric literals in source files, which is also why the fixtures live inside
 a document rather than a `.json` file, and why two cases are still missing.
+
+It is held to its own rule: `scripts/surface.py` extracts what a caller of this
+package holds — the names in `__all__`, plus the console script and the subcommands it
+advertises — and `released-surface.json` freezes what `v0.1.0` published.
 
 ## License
 
