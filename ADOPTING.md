@@ -81,6 +81,25 @@ A check over a product that fails the test passes vacuously and tells the next
 maintainer the repository ships something it does not. Refusing is the deliverable, and
 the evidence is the work.
 
+### The unit of adoption is the distribution, not the repository
+
+Ask the question once per **distribution**, not once per repository. Nothing in the rule is
+repository-scoped: `decide` takes a current version and two surfaces, and knows nothing about
+trees. So a repository that ships two distributions — say an npm package at the root and a
+Python one in a subdirectory, each with its own version, each with its own consumers — has
+**two** slots and needs two baselines and two checks, named for what they guard.
+
+Refusing such a repository on "several independent versions and no canonical one" would be
+the wrong reading of that row. It exists for a product whose *one* artifact cannot say which
+version it is — five crates in a workspace that build one binary, ten values none of which is
+inherited. Two genuinely separate artifacts, each carrying its own version, are not that
+case; they are two products sharing a directory.
+
+And when their surfaces have already drifted apart while both manifests still declare the
+same number — which is what one repository here turned out to be doing, with six exports on
+one side that the other lacks and a docstring claiming the two mirror each other — that is
+not an argument for refusing. It is the defect a gate exists to catch, sitting in the open.
+
 ### A refusal needs a condition that revokes it
 
 A wired repository leaves a frozen file in the tree, so a check can hang on it. A
