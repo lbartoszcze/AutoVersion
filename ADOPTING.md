@@ -565,14 +565,24 @@ under `[console_scripts]` rather than from `pyproject.toml`.
 ## The check
 
 ```sh
+: "${RUNNER_TEMP:=$(mktemp -d)}"
+: "${GITHUB_PATH:=$(mktemp)}"
 python3 -m venv "$RUNNER_TEMP/rule"
 "$RUNNER_TEMP/rule/bin/python" -m pip install --quiet \
   "git+https://github.com/lbartoszcze/AutoVersion@v0.1.0"
 echo "$RUNNER_TEMP/rule/bin" >> "$GITHUB_PATH"
+export PATH="$RUNNER_TEMP/rule/bin:$PATH"
 autoversion decide --current "$released" \
   --published-surface released-surface.json \
   --candidate-surface "$candidate" --json
 ```
+
+Default **both** runner variables, not just the temp directory. Under `set -eu` the line
+`>> "$GITHUB_PATH"` dies with `GITHUB_PATH: unbound variable` when you run the step body
+locally — which is exactly what you are told to do — so the venv builds, the rule installs, and
+the step still fails. And export `PATH` as well as appending to `GITHUB_PATH`: the append only
+affects *later* steps, so without the export the rest of this step cannot see the rule it just
+installed.
 
 **Install into a virtual environment, not the system interpreter.** A bare
 `pip install git+…` was what this document said first, and it is a permanently red gate on a
@@ -594,6 +604,13 @@ One snag if you write that control: an **empty** candidate surface will not serv
 `breaking` case, because the rule refuses it outright — an empty surface is far more likely to
 mean a broken extractor than a deleted API, which is the whole reason it refuses. Give the
 control a non-empty candidate with one name missing.
+
+And one more thing the control has to do, which is not obvious. Asserting the rule *answers* is
+not enough: a saboteur returning a constant `internal` sails through the gate steps themselves,
+because when declared equals released, `internal` is the "nothing to release" branch — the
+passing one. The only step that catches it is one demanding the gate can still **refuse**: feed
+it a surface with a name removed and require a non-zero exit. A workflow without a refusal
+self-test accepts a fabricated verdict silently.
 
 Then compare the version the product declares with the version the rule derived:
 
