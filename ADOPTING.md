@@ -17,10 +17,58 @@ A version is consumed when somebody outside the repository selects it: a package
 release, an artifact under `stado://releases/<product>/<version>/...`, a store build
 number, a container tag, or a sibling repository pinning it.
 
-If nothing selects a version — a paper, a schema, a landing page, a research script —
-**do not adopt.** A check over a product that distributes nothing passes vacuously and
-tells the next maintainer the repository ships something it does not. Refusing is the
-correct outcome, and saying why is the deliverable.
+The operative test is sharper than "is it installable", because installing from a git
+URL selects a ref, not a version, in every ecosystem — so that question separates
+nothing. Ask instead:
+
+**Does the packaging stamp the version into a distributable artifact, and can a
+consumer observe it?**
+
+A Python distribution passes: the sdist and wheel filenames carry the version and
+`pip show` reports it. A crate published to a registry passes. A binary published to a
+channel under `/<version>/<platform>/` passes. Publication may not have happened yet —
+adopt anyway, because the ratchet is cheapest to install before the first release
+rather than after the first mistake.
+
+These fail the test, and refusing is the correct outcome:
+
+| Shape | Why there is no version to check |
+| --- | --- |
+| artifact pinned by content digest | the pin is a digest; no version segment exists, and none ever will |
+| `releaseId: "source-tree"`, invoked by absolute path | the working tree *is* the release |
+| `publish = false`, or a binary with no `--version` and no tag | nobody can observe the version, so nobody can select it |
+| consumer holds only a service URL and a bearer | the unit of consumption is a running deployment |
+| no packaging metadata at all | there is no artifact to carry a version |
+| several independent versions and no canonical one | `--current` is undefined |
+
+Whether anything consumes it *today* is not the test. A package with no users still has
+a version somebody will pin tomorrow, and the ratchet costs nothing meanwhile. Private
+visibility is not the test either: that governs who may fetch the artifact, not whether
+its identity is a version.
+
+A check over a product that fails the test passes vacuously and tells the next
+maintainer the repository ships something it does not. Refusing is the deliverable, and
+the evidence is the work.
+
+### A refusal needs a condition that revokes it
+
+A wired repository leaves a frozen file in the tree, so a check can hang on it. A
+refusal leaves nothing — which means when the reason stops holding, nobody finds out.
+Refusals rot the same way a stale baseline does, only more quietly.
+
+So record every refusal with the observation that would overturn it, phrased so someone
+can check it without having been here:
+
+| Refusal ground | What revokes it |
+| --- | --- |
+| channel is content-addressed | the publish workflow starts writing `/<version>/<platform>/`, or a tag appears |
+| no packaging metadata | a manifest lands that names and versions the distribution |
+| `publish = false`, no `--version`, no tag | any of those three changes |
+| consumer holds only a URL | a consumer starts selecting a version, or the service reports one it can select |
+| no canonical version | a single inherited version appears and the artifacts carry it |
+
+Every refusal in this fleet is one workflow edit away from being wrong. Written this
+way, it is revoked by observation instead of by somebody remembering.
 
 ## Choosing the surface
 
@@ -104,6 +152,29 @@ nobody can install measures every later comparison against nothing:
 
 Couple the two files through a named constant in your generator, not through prose that
 drifts.
+
+### Do not let the baseline rot on a lower tier
+
+Being honest about your tier is not the same as being on the right one. A tag or a
+release can appear *after* the baseline was generated, and a `head:` baseline keeps
+passing the bidirectional check while a better artifact sits unused — the marker is
+truthful and the baseline is stale. Compare tiers in the same step:
+
+```sh
+best="$(python3 scripts/baseline.py --stdout | jq -r '.source | split(" ") | first')"
+if [ "${best%%:*}" != "${marker%%:*}" ]; then
+  echo "::error::baseline sits on tier '${marker%%:*}' but '${best%%:*}' is reachable now"
+  false
+fi
+```
+
+Two traps in those five lines. Compare **only the tier prefix**: a `head:` marker
+carries a sha that changes every commit, so comparing whole markers would demand a
+regenerated baseline per commit, forever. And print the candidate baseline to stdout —
+the committed `released-surface.json` must never be rewritten by the check, and the
+regenerated *surface* must never reach the decision. Recomputing both sides at check
+time is the one shape that genuinely cannot refuse anything, which is precisely what a
+frozen committed file is not.
 
 ### The trap
 
