@@ -584,9 +584,16 @@ worth what one that can never fail is worth. The venv sidesteps the marker witho
 `autoversion` call unchanged.
 
 Then assert the rule actually answers before anything downstream claims a verdict — one
-`autoversion --help` or a known-answer `decide` is enough. Proven load-bearing by putting a
+`autoversion --help`, or better a pair of known answers: identical surfaces must read
+`internal`, and one removed name must read `breaking`. Proven load-bearing by putting a
 sabotaged `autoversion` first on `PATH`: with the install step the gate passes, without it the
-saboteur answers and the gate fails.
+saboteur answers and the gate fails. Word the failure so it blames what is on `PATH`, not the
+registry.
+
+One snag if you write that control: an **empty** candidate surface will not serve as the
+`breaking` case, because the rule refuses it outright — an empty surface is far more likely to
+mean a broken extractor than a deleted API, which is the whole reason it refuses. Give the
+control a non-empty candidate with one name missing.
 
 Then compare the version the product declares with the version the rule derived:
 
