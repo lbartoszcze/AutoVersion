@@ -9,6 +9,9 @@ readme = "README.md"
 license = {text = "MIT"}
 dynamic = ["version"]
 
+[project.scripts]
+autoversion = "autoversion.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/lbartoszcze/AutoVersion"
 
