@@ -527,6 +527,23 @@ published baseline — after which every comparison is measured against the wron
 artifact, quietly. Ask the registry what the newest published version is, then recover
 that version's surface.
 
+**Unless the name is shared, in which case bind the tier by digest.** That rule assumes the
+distribution name is yours, and one repository here proved what happens when it is not. Its
+`setup.py` claims a name whose later releases were published from a *different* repository in
+the same fleet — 50-odd of them. Follow "latest published" literally and the generator adopts
+another product's surface: measured, that release's sdist yields ~999 names with **zero**
+overlap with this tree's 76, jamming the gate on a permanent meaningless `breaking`, while the
+same release's *wheel* yields **zero** names, after which the gate can never read `breaking`
+again. One release, two artifacts, disagreeing with each other — and the dangerous half is the
+one that passes.
+
+Name plus version cannot catch that, because both are correct; it is the silent-argument-error
+class wearing a well-formed answer. Only the digest can. So resolve the newest published
+release **whose artifact digest this tree vouches for** — from a built distribution under
+`dist/`, or from the digest recorded in the committed baseline's own prose — and have the check
+re-verify it. A digest cannot name the wrong object. If the evidence disappears the tier
+honestly falls and the check refuses, which is the correct failure.
+
 One consequence worth planning for: a wheel contains no manifest. If console scripts are
 part of your contract, read them from `<dist>-<version>.dist-info/entry_points.txt`
 under `[console_scripts]` rather than from `pyproject.toml`.
