@@ -109,6 +109,15 @@ exactly the moment the tag appears and it should have fallen. Worse than a false
 because the empty listing agrees with the empty listing collected by hand, and two blind
 reads look like independent corroboration.
 
+There is a third trap in the same family, and it points the other way: **a fork shares the
+upstream's object store, so tags you can see locally may not be yours.** Measured on a fork in
+this fleet — after adding an upstream remote, `git tag --list` reports 23 tags while
+`git ls-remote --tags origin` reports none. A probe reading local tags would file a baseline
+under the upstream's tag as though this repository had been released, which is the
+false-*positive* mirror of tag blindness. On another fork the single visible tag sat at
+exactly the upstream tag's sha. So scope every tag question to `origin` explicitly, and
+establish it before adding any upstream remote.
+
 So establish "never tagged, never released" against the remote, never from a working
 copy: `git ls-remote --tags origin`, the host's tags and releases API, and
 `git rev-parse --is-shallow-repository` to know whether any local ref listing means
