@@ -55,6 +55,15 @@ made and demands a version nobody here can publish. Green is reachable only by b
 can never pass certifies exactly as little as one that can never fail, and it trains people
 to ignore a red build.
 
+Measured on a real fork in this fleet, both ways, and both are wrong. Against the upstream's
+latest release the rule reported `breaking` and demanded `2.0.0` — driven by two dozen names
+the fork never removed and merely lacks, because it sits 130 commits behind. Against the
+version the fork's own manifest declares, the rule reported `additive` and derived `1.1.0` —
+**a version the upstream had already published, with entirely different content.** So the
+coordinate the rule computes for our tree is occupied by a stranger's release. That is the
+sentence to remember: not merely that the name is not ours, but that the number the rule
+derives is already taken by somebody else's artifact.
+
 And no marker spelling rescues it. Take the distribution name faithfully from the manifest,
 as this document tells you to, and for a fork that name *resolves* — the registry serves it,
 the content names it, every control passes — and the gate validates a stranger's project
