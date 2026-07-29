@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoversion"
+description = "One versioning rule, shared by repositories that have nothing else in common"
+readme = "README.md"
+license = {text = "MIT"}
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/lbartoszcze/AutoVersion"
+
+# The version is taken from the git tag rather than written here. A file holding it
+# would be a second place where a version lives, in the one repository that exists
+# to keep versions in a single place.
+[tool.setuptools_scm]
+
+[tool.setuptools]
+packages = ["autoversion"]
