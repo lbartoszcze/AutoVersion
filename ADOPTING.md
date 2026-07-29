@@ -137,7 +137,10 @@ after the first space is prose for humans.
 | --- | --- | --- |
 | `pypi-sdist:<filename>` | a published sdist | yes |
 | `pypi-wheel:<filename>` | a published pure-Python wheel | yes |
+| `npm-tarball:<filename>` | a published npm tarball, named as the registry serves it — `<name>-<version>.tgz`, unscoped even for a scoped package | yes |
+| `crates-io:<filename>` | a published crate, `<name>-<version>.crate` | yes |
 | `stado:<object path>` | an artifact in the release channel | yes |
+| `gh-release:<tag>` | an asset on a GitHub Release | yes |
 | `git-archive:<tag>` | a tag, reproduced with `git archive` | no |
 | `head:<full sha>` | the working revision — last resort | no |
 
