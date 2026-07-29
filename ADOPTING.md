@@ -62,27 +62,52 @@ every module it skipped.
 
 ## The baseline
 
-`released-surface.json` describes the version **actually published**, in this order of
-preference:
+`released-surface.json` describes the version **actually published**. Its `"source"`
+field starts with a marker naming which artifact it was recovered from; everything
+after the first space is prose for humans.
 
-1. the published sdist,
-2. the published wheel, when the package is pure Python,
-3. the artifact in the release channel,
-4. a git tag, recovered with `git archive`,
-5. HEAD — last resort, and `"source"` must say so plainly.
+| Marker | Recovered from | Claims a registry |
+| --- | --- | --- |
+| `pypi-sdist:<filename>` | a published sdist | yes |
+| `pypi-wheel:<filename>` | a published pure-Python wheel | yes |
+| `stado:<object path>` | an artifact in the release channel | yes |
+| `git-archive:<tag>` | a tag, reproduced with `git archive` | no |
+| `head:<full sha>` | the working revision — last resort | no |
 
-Prefer a tag over HEAD even when nothing reached a package index: a tag is something
-somebody installed. If a tag disagrees with the version inside it, use the tag that
-actually contains that version and report the mismatch.
+Preference runs down that table. Pick the best tier that actually exists for you, never
+a lower one because a higher one was inconvenient. Prefer a tag over HEAD even when
+nothing reached a package index: a tag is something somebody installed. If a tag
+disagrees with the version inside it, use the tag that really contains that version and
+report the mismatch.
 
-Guard the baseline in both directions, because a baseline nobody can install measures
-every later comparison against nothing:
+Read the marker as a token, never by matching prose:
 
-- if the registry serves that version, the baseline must declare it came from that
-  artifact;
-- if the registry does not, the baseline must not claim publication.
+```sh
+marker="$(jq -r '.source | split(" ")[0]' released-surface.json)"
+```
 
-Couple the two files through a named marker in `"source"`, not through prose that drifts.
+Guard it in both directions, each family against its own registry, because a baseline
+nobody can install measures every later comparison against nothing:
+
+- a marker that claims a registry → that exact version must be served there;
+- a marker that claims none → the registry must not serve this project at all. If it
+  does, the baseline is dodging a real release and the check must refuse.
+
+Couple the two files through a named constant in your generator, not through prose that
+drifts.
+
+### The trap
+
+**Resolve the latest published version from the registry, not the version the manifest
+declares.** The moment someone bumps ahead of a release, looking up the declared version
+returns nothing, a naive generator degrades to `head:<sha>`, and it throws away the real
+published baseline — after which every comparison is measured against the wrong
+artifact, quietly. Ask the registry what the newest published version is, then recover
+that version's surface.
+
+One consequence worth planning for: a wheel contains no manifest. If console scripts are
+part of your contract, read them from `<dist>-<version>.dist-info/entry_points.txt`
+under `[console_scripts]` rather than from `pyproject.toml`.
 
 ## The check
 
