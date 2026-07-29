@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0",
+  "source": "git-archive:v0.1.0 reproduced with git archive; setuptools-scm derives the version from the tag, so the tag and the tree agree by construction",
+  "surface": [
+    "cmd:autoversion",
+    "cmd:autoversion check",
+    "cmd:autoversion decide",
+    "cmd:autoversion order",
+    "cmd:autoversion surface",
+    "export:ADDITIVE",
+    "export:BREAKING",
+    "export:EmptySurface",
+    "export:INTERNAL",
+    "export:NotATriple",
+    "export:NotCanonical",
+    "export:NotNumeric",
+    "export:RuleError",
+    "export:Version",
+    "export:classify",
+    "export:decide",
+    "export:is_canonical",
+    "export:version_newer",
+    "export:version_tuple"
+  ]
+}

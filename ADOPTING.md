@@ -11,12 +11,16 @@ released-surface.json                 the surface of the version actually publis
 .github/workflows/version-check.yml   installs the rule, compares, refuses
 ```
 
-## First decide whether a version is consumed at all
+## First decide whether the rule applies at all
 
-A version is consumed when somebody outside the repository selects it: a package
-release, an artifact under `stado://releases/<product>/<version>/...`, a store build
-number, a container tag, or a sibling repository pinning it.
+**Consumer count is not the test, in either direction.**
 
+Zero consumers does not excuse a product: a package with no users still has a version
+somebody will pin tomorrow, and the ratchet costs nothing meanwhile. Real consumers do
+not oblige one either: this fleet has a production service that four repositories send
+live traffic through, and it still refuses, because every one of them selects a URL and
+a bearer — never a version, a tag or a digest. The unit of consumption there is a
+running deployment, so there is nothing for a version gate to guard.
 The operative test is sharper than "is it installable", because installing from a git
 URL selects a ref, not a version, in every ecosystem — so that question separates
 nothing. Ask instead:
@@ -40,6 +44,7 @@ These fail the test, and refusing is the correct outcome:
 | consumer holds only a service URL and a bearer | the unit of consumption is a running deployment |
 | no packaging metadata at all | there is no artifact to carry a version |
 | several independent versions and no canonical one | `--current` is undefined |
+| built and installed only from a checkout — `cargo install --path .`, `pip install -e .` | the artifact is selected by path to a working tree, never by version |
 
 Whether anything consumes it *today* is not the test. A package with no users still has
 a version somebody will pin tomorrow, and the ratchet costs nothing meanwhile. Private
@@ -158,23 +163,40 @@ drifts.
 Being honest about your tier is not the same as being on the right one. A tag or a
 release can appear *after* the baseline was generated, and a `head:` baseline keeps
 passing the bidirectional check while a better artifact sits unused — the marker is
-truthful and the baseline is stale. Compare tiers in the same step:
+truthful and the baseline is stale. Compare against the best reachable artifact in the
+same step:
 
 ```sh
 best="$(python3 scripts/baseline.py --stdout | jq -r '.source | split(" ") | first')"
-if [ "${best%%:*}" != "${marker%%:*}" ]; then
-  echo "::error::baseline sits on tier '${marker%%:*}' but '${best%%:*}' is reachable now"
+if [ "${marker%%:*}" = head ]; then want="${best%%:*}"; have="${marker%%:*}"
+else want="$best"; have="$marker"; fi
+if [ "$want" != "$have" ]; then
+  echo "::error::baseline is '$have' but '$want' is reachable now"
   false
 fi
 ```
 
-Two traps in those five lines. Compare **only the tier prefix**: a `head:` marker
-carries a sha that changes every commit, so comparing whole markers would demand a
-regenerated baseline per commit, forever. And print the candidate baseline to stdout —
-the committed `released-surface.json` must never be rewritten by the check, and the
-regenerated *surface* must never reach the decision. Recomputing both sides at check
-time is the one shape that genuinely cannot refuse anything, which is precisely what a
-frozen committed file is not.
+**Compare the whole marker on every tier except `head`, and the tier alone on `head`.**
+The asymmetry is not fussiness. A `head:` marker carries a sha that moves with every
+commit, so demanding full equality there is an infinite ratchet — a regenerated baseline
+per commit, forever. Every other tier names its artifact exactly, by filename or by tag,
+and those do not move; comparing only the prefix there passes a baseline that names the
+right *kind* of artifact and the wrong one — an older sdist while a newer release
+exists, or a tag outranked by a newer tag. Tier matches, marker is honest, and the gate
+measures a superseded artifact forever.
+
+On a registry tier, comparing *versions* is better still: it explains the failure —
+"PyPI now serves 0.1.2" — instead of showing two filenames, and `autoversion order`
+makes the ordering the rule's answer rather than the workflow's guess.
+
+Print the candidate baseline to stdout. The committed `released-surface.json` must never
+be rewritten by the check, and the regenerated *surface* must never reach the decision.
+Recomputing both sides at check time is the one shape that genuinely cannot refuse
+anything, which is precisely what a frozen committed file is not.
+
+The motivating case is not hypothetical: one repository in this fleet published a
+distribution whose packaged surface was empty. A stale baseline there measures every
+later change against a surface that never existed.
 
 ### The trap
 
