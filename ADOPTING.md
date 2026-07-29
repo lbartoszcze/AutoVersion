@@ -600,6 +600,23 @@ sabotaged `autoversion` first on `PATH`: with the install step the gate passes, 
 saboteur answers and the gate fails. Word the failure so it blames what is on `PATH`, not the
 registry.
 
+Better still, establish **which** `autoversion` is about to answer before believing it:
+
+```sh
+resolved="$(command -v autoversion || true)"
+case "$resolved" in
+  "$RUNNER_TEMP/rule/bin/"*) ;;
+  *) echo "::error::autoversion resolves to '${resolved:-nothing}', outside the venv"; false ;;
+esac
+```
+
+`--help` is satisfied by any executable that exits zero, so it certifies a stranger just as
+happily as the rule. And the `export PATH` line above only repairs the *command-not-found*
+branch: if a later edit drops it, `--help` goes back to exiting zero because something else
+answered, and nobody sees it because the step is green. The identity check turns that fail-open
+into a fail-closed — measured on a machine that has an ambient `autoversion` installed, dropping
+the export makes the step refuse and *name* the interloper's path.
+
 One snag if you write that control: an **empty** candidate surface will not serve as the
 `breaking` case, because the rule refuses it outright — an empty surface is far more likely to
 mean a broken extractor than a deleted API, which is the whole reason it refuses. Give the
