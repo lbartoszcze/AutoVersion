@@ -46,8 +46,18 @@ These fail the test, and refusing is the correct outcome:
 | several independent versions and no canonical one | `--current` is undefined |
 | built and installed only from a checkout — `cargo install --path .`, `pip install -e .` | the artifact is selected by path to a working tree, never by version |
 | the manifest names a distribution coordinate somebody else owns — a fork or an imported mirror | the version is real but not ours; our surface can never diverge from the published one by any act performed here |
+| one declared version that several shipped artifacts already share | the version exists and does not *discriminate*, so it cannot be what anybody selects |
 
-That last row hides a second failure mode worth naming, because it is the mirror image of a
+The last row is the subtlest and the easiest to miss, because a manifest *does* state a
+version and every mechanical check passes. Measured in this fleet: three artifacts published
+to the release channel under three different coordinates, 54 MB and 198 MB and 198 MB — plainly
+different builds — and all three declare the same `0.4.0`. The number cannot tell you which
+one you are holding; the coordinate and the digest can. A gate over it would guard a value
+that several shipped artifacts already share, which is not a contract. The diagnostic is
+cheap and worth running whenever a channel publishes under something other than a version:
+download two releases and read the manifest out of each.
+
+The fork row hides a different failure mode, and it is the mirror image of a
 sleeping gate. Wire a fork and the gate goes **permanently red**: the baseline recovers from
 the upstream's latest release, our tree lags it, so the rule reports a change nobody here
 made and demands a version nobody here can publish. Green is reachable only by bumping
