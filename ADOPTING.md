@@ -593,6 +593,19 @@ worth what one that can never fail is worth. The venv sidesteps the marker witho
 `--break-system-packages`, and putting its `bin` on `GITHUB_PATH` keeps every later step's
 `autoversion` call unchanged.
 
+And do **not** fall back to `--break-system-packages` when the venv cannot be built. It is
+tempting — it keeps the step green on an image without the `venv` module — and it is the one
+branch the identity guard below cannot cover: the rule lands in the marked interpreter, so the
+step has no way to attribute the binary that answers to its own install. Red and named beats
+green through an unattributable binary. Let a missing `venv` module be reported and refuse.
+
+One honest limit on all of this, and it belongs in the record rather than in a footnote: nobody
+in this fleet reproduced the `externally-managed-environment` failure itself, because the
+development machines run a Homebrew python that carries no marker. That half is taken from the
+runner image. What *was* verified by execution is that the venv shape works, that the rule
+answers from inside it, and that a stranger on `PATH` either loses the prepend or is named and
+refused.
+
 Then assert the rule actually answers before anything downstream claims a verdict — one
 `autoversion --help`, or better a pair of known answers: identical surfaces must read
 `internal`, and one removed name must read `breaking`. Proven load-bearing by putting a
