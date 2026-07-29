@@ -199,6 +199,20 @@ for an unrelated syntax error. The surface is unknown there, not shrunk. Keep a
 `--tolerant` mode only for recovering an already-published artifact, and have it report
 every module it skipped.
 
+**And "fails loudly" is harder than it looks in a hand-written scanner.** Tracking brace depth
+and erroring on imbalance is necessary and *not* sufficient: a mangled or truncated class
+header simply stops matching. Nothing is unbalanced, nothing errors, the class contributes no
+members, and the surface comes out shorter — which the rule reads as a breaking removal nobody
+made. The corruption arm that is supposed to catch this misses it easily: deleting a file's
+first `}` usually mangles an import, and a scanner reads straight through that to the correct
+answer, reporting a false clean.
+
+What closes it is resolution rather than syntax. Take every name the entry point re-exports and
+resolve it back to a declaration in the module that is supposed to hold it; an unresolvable name
+or a missing module is a refusal. Then a header that stopped matching cannot be silent, because
+the names that depended on it no longer resolve. Exercise it with three arms, not one:
+unbalanced, balanced-but-unmatchable, and missing module.
+
 ## The baseline
 
 `released-surface.json` describes the version **actually published**. Its `"source"`
