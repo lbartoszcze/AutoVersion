@@ -161,16 +161,38 @@ present, and fail if the control comes back empty. Four instances, all real:
   written as `curl -sSf … || echo not published`. But curl also fails on no egress, DNS
   failure, or the registry being down, and at that level those are indistinguishable from
   the answer you meant to read. So the step concludes "nothing is published, the baseline
-  is honest" *precisely when it made no successful request*. Control first, assertion
-  second:
+  is honest" *precisely when it made no successful request*. Worse than a stale baseline:
+  that one needed a tag to appear before it mattered, this one is wrong on every hiccup.
+
+  A positive control on a project you know is published is the obvious repair, and it is
+  **not enough**. It proves the index is reachable, not that *your* project's lookup
+  answered — a rate-limit page, an error page or a permission refusal on that lookup fails
+  exactly like not-found and still reads as absence. A 403 is the sharp case: a successful
+  request, a real response, a control that passes cleanly, and an answer that means
+  nothing.
+
+  So **demand testimony from the answer's content**, which subsumes the control, because an
+  unreachable index returns no answer to read. Three outcomes instead of two — named,
+  stated-absent, unproven:
 
   ```sh
-  curl -sSf "https://pypi.org/pypi/pip/json" >/dev/null || {
-    echo "::error::cannot reach PyPI, so the absence of $project is unproven"; false; }
+  answer="$(curl -s "https://pypi.org/pypi/$project/json" || true)"
+  if printf '%s' "$answer" | jq -e '.info.name' >/dev/null; then
+    echo "::error::$project IS published, so a no-registry baseline is a lie"; false
+  elif ! printf '%s' "$answer" |
+       jq -e '(.message // "") | ascii_downcase | contains("not found")' >/dev/null; then
+    echo "::error::the index did not answer, so the absence of $project is unproven"; false
+  fi
   ```
 
-  This is worse than a stale baseline: that one needed a tag to appear before it mattered,
-  this one is wrong on every network hiccup.
+  The `|| true` is safe *only* because both passing branches demand specific content and
+  the fallthrough refuses. Never lift it into a check that treats an empty answer as fine.
+  Reading the status code would be equivalent, but `%{http_code}` and `= 404` are bare
+  numerals that this workspace refuses to write, so content is the writable spelling.
+
+  And if your check mixes shell and Python, a stubbed `curl` does not exercise the Python
+  path: it keeps real network and *looks* verified. Break both transports, or your proof
+  of fail-closed behaviour is itself a false positive of the class you are hunting.
 
 - **Ask the right store.** A channel probe that queries the wrong surface reports absence
   for objects that demonstrably exist, on every invocation, with a zero exit. A reverse
@@ -178,6 +200,37 @@ present, and fail if the control comes back empty. Four instances, all real:
   forward one fails forever and goes red the day the outage lifts, when everyone will
   assume the surface changed. The control — a product you know is published — is what
   catches it, because the subject's answer looks perfect either way.
+
+  Better still, **enumerate the namespace instead of filtering it.** A listing of the
+  whole channel shows your product absent from a complete inventory; a query filtered by
+  a product name you guessed shows nothing when the name is wrong, which is the same
+  answer for a different reason. Enumeration removes that failure mode rather than
+  controlling for it.
+
+  Read registry absence from the HTTP **status code**, never from the client's exit
+  status: an unreachable host gives you no code at all, which is visibly different from a
+  404, whereas both give you a non-zero exit.
+
+  This is a third failure class, distinct from silence. A positive control catches a probe
+  that could not run; it does not catch one that ran, succeeded, and answered about
+  something else. The request completes, the answer is unambiguous, and it is false —
+  which is worse than a timeout, because a tool that says "the store answered, it is not
+  there" is now vouching for a wrong answer. Only a control on a subject you know
+  independently to exist can catch that.
+
+  Two concrete lessons from this toolchain, both measured. The spelling of the argument
+  decides which surface you hit: a full `stado://` URI resolves in the product namespace
+  (`present`, 1168544 bytes) while the same object as a bare path reads as a queue key and
+  answers `absent`. And prefer a probe that reports three states — present, absent,
+  unreachable — over a listing, which collapses all three into one silence.
+
+  Best of all, **prefer a fact read out of the repository over an absence read off a
+  service.** "This manifest declares no `description` and no `license`, which the registry
+  requires" is a property of the tree in front of you. "The registry does not serve it" is
+  a property of a conversation that may not have happened. That example is real: a crate
+  with neither `description` nor `license` is rejected by crates.io *server-side* at
+  publish, so its version slot does not exist until the manifest changes — and `cargo
+  package` only warns locally, so this is invisible from a laptop.
 
 - **A search that found nothing may not have looked.** Before reporting "no repository
   pins this", run a pattern that must match through the same paths. This wave caught a
