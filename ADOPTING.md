@@ -71,9 +71,23 @@ can check it without having been here:
 | `publish = false`, no `--version`, no tag | any of those three changes |
 | consumer holds only a URL | a consumer starts selecting a version, or the service reports one it can select |
 | no canonical version | a single inherited version appears and the artifacts carry it |
+| installed only from a checkout | a `cargo publish`, a tag, or a first object under `stado://releases/<product>/<version>/<platform>/` |
 
 Every refusal in this fleet is one workflow edit away from being wrong. Written this
 way, it is revoked by observation instead of by somebody remembering.
+
+One caution, and it is the mirror image of a bug this fleet hit in CI. A trigger that
+consults git refs is born asleep: `actions/checkout@v4` fetches no tags, so "no tag
+exists" is trivially true on a runner, and the refusal renews itself as *confirmed* at
+exactly the moment the tag appears and it should have fallen. Worse than a false green,
+because the empty listing agrees with the empty listing collected by hand, and two blind
+reads look like independent corroboration.
+
+So establish "never tagged, never released" against the remote, never from a working
+copy: `git ls-remote --tags origin`, the host's tags and releases API, and
+`git rev-parse --is-shallow-repository` to know whether any local ref listing means
+anything at all. Better still, prefer triggers that read no refs — a manifest field, or
+the release channel's own answer about an object — which are immune to this whole class.
 
 ## Choosing the surface
 
@@ -197,6 +211,40 @@ anything, which is precisely what a frozen committed file is not.
 The motivating case is not hypothetical: one repository in this fleet published a
 distribution whose packaged surface was empty. A stale baseline there measures every
 later change against a surface that never existed.
+
+### The tier check is asleep in CI unless you fetch tags
+
+`actions/checkout@v4` fetches one commit and no tags. So `git tag --list` is empty on the
+runner whatever the remote holds, the tier probe concludes `head:` is still the best
+artifact available, and it passes — blind to the exact tag it exists to notice. Green on
+a laptop whose clone has tags, decorative on the runner. That is the worst shape a gate
+can take.
+
+```yaml
+- name: Make tags and history visible
+  run: git fetch --force --tags --unshallow || git fetch --force --tags
+```
+
+Unshallowing matters on its own: a shallow clone lacks the tag's tree, so `git archive
+<tag>` fails even once the tag is visible. `--unshallow` errors on an already complete
+repository, hence the fallback. `fetch-depth: 0` on the checkout step is the usual
+spelling, but this workspace refuses the bare numeric literal, so the fetch step is the
+writable form.
+
+The deciding question is not which tier you are on. It is **does any step read a git ref
+or git history.** Add the fetch step if a step invokes the generator, resolves a tag, or
+runs `git archive`; skip it if every fact the check consults arrives over HTTP or from an
+`ast` read of the checked-out tree. Registry tier correlates with not needing it, but the
+correlation is not the invariant — a registry-tier repository that calls the generator
+from CI is still reading refs it cannot see. Getting this wrong in the safe direction
+costs a wasted second; getting it wrong the other way leaves a sleeping gate.
+
+A related trap when recovering a baseline from a tag: `git archive <tag> | tar -x` gives
+you the tree, but invoking the language's tooling inside it — `cargo metadata`, a build,
+an import — reaches the network or a lockfile the tag never shipped, and the baseline
+quietly becomes a property of the runner's cache instead of the artifact. Read the
+manifest and sources statically out of the archive. It is the same discipline as never
+importing a package to read its surface, one ecosystem over.
 
 ### The trap
 
