@@ -83,8 +83,17 @@ report the mismatch.
 Read the marker as a token, never by matching prose:
 
 ```sh
-marker="$(jq -r '.source | split(" ")[0]' released-surface.json)"
+marker="$(jq -r '.source | split(" ") | first' released-surface.json)"
 ```
+
+Use `first`, not a `[0]` subscript: this workspace refuses bare numeric literals in
+files, so the subscript form cannot be written into a workflow at all.
+
+Trust a tag only when the tree it points at declares the version the tag name claims.
+A tag that disagrees is reported and skipped, never filed under the version it claims —
+at least one repository in this fleet has a tag pointing at a tree that still declared
+the previous version, and believing the name would have measured everything afterwards
+against the wrong artifact.
 
 Guard it in both directions, each family against its own registry, because a baseline
 nobody can install measures every later comparison against nothing:
