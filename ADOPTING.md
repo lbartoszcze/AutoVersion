@@ -227,10 +227,14 @@ present, and fail if the control comes back empty. Four instances, all real:
   Best of all, **prefer a fact read out of the repository over an absence read off a
   service.** "This manifest declares no `description` and no `license`, which the registry
   requires" is a property of the tree in front of you. "The registry does not serve it" is
-  a property of a conversation that may not have happened. That example is real: a crate
-  with neither `description` nor `license` is rejected by crates.io *server-side* at
-  publish, so its version slot does not exist until the manifest changes — and `cargo
-  package` only warns locally, so this is invisible from a laptop.
+  a property of a conversation that may not have happened. That example is real and
+  mechanical: crates.io rejects a publish server-side, HTTP 400, when `description` is
+  empty, or when `license` *and* `license-file` are both empty
+  (`rust-lang/crates.io`, `src/controllers/krate/publish.rs`). So "this crate is not
+  publishable as it stands" is decidable by reading `Cargo.toml`, with no request to
+  anything — while `cargo publish --dry-run` merely *warns* and exits zero, which is why
+  the fact is invisible from a laptop and why a locally produced `<name>-<version>.crate`
+  proves no tier at all.
 
 - **A search that found nothing may not have looked.** Before reporting "no repository
   pins this", run a pattern that must match through the same paths. This wave caught a
@@ -241,6 +245,44 @@ present, and fail if the control comes back empty. Four instances, all real:
   runner lacks, a bias in one direction, so exercise the committed step bodies inside
   `git clone --depth 1 --no-tags`. It is the only local technique in this fleet that can
   falsify a claim about CI.
+
+Those instances are three distinct failure classes, and the third is the one that cost
+this fleet the most rounds of correction:
+
+1. **Silence.** The probe could not run. A positive control catches it.
+2. **Authorised silence.** The probe ran and was refused — a 403, a rate-limit page. The
+   control passes cleanly and the answer means nothing. Reading the answer's *content*
+   catches it; the control does not.
+3. **Silent argument error.** The probe ran, succeeded, and answered truthfully — about a
+   different object than the author meant. Neither a control nor content-reading catches
+   this, because both are working correctly. The request is fine; the question was wrong.
+
+Only one discipline closes the third: run the control on a subject you know independently
+to exist, **through the exact same spelling as the subject**. In this toolchain a full
+`stado://` URI resolves in the product namespace while the same object as a bare path
+answers `absent` — a true answer about a queue key. Measured, on an object that exists:
+the URI gives `present` with a size, the bare path gives `absent`. That cost three agents
+two mistakes each, in both directions, before anyone ran the control through both
+spellings.
+
+Class 2 also has a shape worth knowing, because one registry makes it indistinguishable by
+structure alone. PyPI states absence unambiguously (`{"message": "Not Found"}`), but
+crates.io returns the *same* envelope for "no such crate" and for a policy refusal —
+`{"errors": [{"detail": …}]}` either way, and it refuses requests with no `User-Agent` by
+default, which is the default state of many CI images. So match the detail *string*
+(`does not exist`), never the presence of `errors`, and send a User-Agent.
+
+Two smaller consequences. A listing subcommand may be defective regardless of spelling —
+here `ls` reports "0 of 0" for six objects that demonstrably exist, both ways, so an
+assertion built on it cannot fail and therefore certifies nothing. And read the field that
+answers your question: on a present object `state` is authoritative while `version` is
+empty and `detail` carries an unrelated diagnostic, so a check branching on `detail`
+inverts its own answer.
+
+One workspace rule ties three surprises together, so learn it once rather than three
+times: **any index or key that would need a lone number has a word form.** `jq '… | first'`
+not `[0]`, `.errors | first | .detail` not `.errors[0].detail`, and a fetch step instead of
+`fetch-depth: 0`. The numeric-literal policy eats the bare digit in every one of them.
 
 And keep the epistemics honest in what you write down. The remote can tell you a project
 has no tags and no releases **now**; it cannot tell you it never had any, because a
