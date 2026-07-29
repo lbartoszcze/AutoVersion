@@ -45,6 +45,23 @@ These fail the test, and refusing is the correct outcome:
 | no packaging metadata at all | there is no artifact to carry a version |
 | several independent versions and no canonical one | `--current` is undefined |
 | built and installed only from a checkout — `cargo install --path .`, `pip install -e .` | the artifact is selected by path to a working tree, never by version |
+| the manifest names a distribution coordinate somebody else owns — a fork or an imported mirror | the version is real but not ours; our surface can never diverge from the published one by any act performed here |
+
+That last row hides a second failure mode worth naming, because it is the mirror image of a
+sleeping gate. Wire a fork and the gate goes **permanently red**: the baseline recovers from
+the upstream's latest release, our tree lags it, so the rule reports a change nobody here
+made and demands a version nobody here can publish. Green is reachable only by bumping
+(forbidden) or by fast-forwarding to the upstream's tree (their work, not ours). A gate that
+can never pass certifies exactly as little as one that can never fail, and it trains people
+to ignore a red build.
+
+And no marker spelling rescues it. Take the distribution name faithfully from the manifest,
+as this document tells you to, and for a fork that name *resolves* — the registry serves it,
+the content names it, every control passes — and the gate validates a stranger's project
+under our repository's name. Establishing that a tree is somebody's mirror is therefore
+worth more than any assertion built on top of it, and the fork flag is not the way: prove it
+by commit-hash containment, since a hash Merkle-covers the whole tree and ancestry, and an
+imported mirror is not flagged as a fork at all.
 
 Whether anything consumes it *today* is not the test. A package with no users still has
 a version somebody will pin tomorrow, and the ratchet costs nothing meanwhile. Private
@@ -137,7 +154,7 @@ after the first space is prose for humans.
 | --- | --- | --- |
 | `pypi-sdist:<filename>` | a published sdist | yes |
 | `pypi-wheel:<filename>` | a published pure-Python wheel | yes |
-| `npm-tarball:<filename>` | a published npm tarball, named as the registry serves it — `<name>-<version>.tgz`, unscoped even for a scoped package | yes |
+| `npm-tarball:<registry path>` | a published npm tarball, as the registry addresses it — `express/-/express-4.22.2.tgz`, or `@types/express/-/express-5.0.6.tgz` for a scoped one | yes |
 | `crates-io:<filename>` | a published crate, `<name>-<version>.crate` | yes |
 | `stado:<object path>` | an artifact in the release channel | yes |
 | `gh-release:<tag>` | an asset on a GitHub Release | yes |
@@ -149,6 +166,23 @@ a lower one because a higher one was inconvenient. Prefer a tag over HEAD even w
 nothing reached a package index: a tag is something somebody installed. If a tag
 disagrees with the version inside it, use the tag that really contains that version and
 report the mismatch.
+
+Take the npm path from `.versions[<v>].dist.tarball` and never assemble it. Two traps sit
+in that one row, both measured. The registry serves a **scoped** package's tarball under the
+**unscoped** filename — `@types/node` yields `node-26.1.2.tgz` — so a marker built from the
+scope refuses forever against a healthy artifact. And the basename alone is **not unique**:
+`express` and `@types/express` both serve `express-<version>.tgz`, two different packages
+with different owners and different contracts. A marker exists to identify the artifact the
+baseline came from, and whole-marker comparison depends on it, so carry the registry path.
+That is this document's own complaint about generic answers, turned on our own vocabulary.
+
+And keep the two names apart: the **filename** drops the scope, but the **lookup** must be
+the full scoped name read from `package.json`. Stripping the scope to query is not a
+harmless shortcut — `@types/node` and `node` are both real packages that answer, so a
+reverse assertion on the bare name does not fail closed, it validates a stranger's project.
+Measured alongside it: a lookup with an unencoded slash and no scope sigil returns HTTP 405,
+not 404, which a two-state check reads as proven absence and a three-state one calls
+unproven.
 
 ### Every negative needs a positive control
 
