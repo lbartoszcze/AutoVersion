@@ -459,8 +459,9 @@ same step:
 python3 scripts/baseline.py --stdout > "$RUNNER_TEMP/best.json" || {
   echo "::error::the baseline generator failed, so the best reachable tier is unknown"; false; }
 best="$(jq -r '.source | split(" ") | first' "$RUNNER_TEMP/best.json")"
-[ -n "$best" ] && [ -n "$marker" ] || {
-  echo "::error::a marker read empty, so this comparison would be vacuous"; false; }
+[ -n "$best" ] && [ -n "$marker" ] &&
+  [ "$best" != null ] && [ "$marker" != null ] || {
+    echo "::error::a marker read empty, so this comparison would be vacuous"; false; }
 if [ "${marker%%:*}" = head ]; then want="${best%%:*}"; have="${marker%%:*}"
 else want="$best"; have="$marker"; fi
 if [ "$want" != "$have" ]; then
@@ -469,12 +470,19 @@ if [ "$want" != "$have" ]; then
 fi
 ```
 
-The first four lines are not ceremony, and the shorter form I published first was wrong. In a
-command substitution containing a pipeline the generator's exit status is **discarded**, and
-`set -e` does not reach inside one. So a dead generator yields an empty `best`, and the step
-blames the wrong thing — or, if the committed marker ever also reads empty, compares `""`
-against `""` and **passes vacuously**. Run the generator into a file, test its status
-explicitly, and assert both markers are non-empty before comparing them.
+**The `!= null` half is the one that does the work, and `-n` alone does not.** Measured:
+`jq -r '.source | split(" ") | first'` on an empty `.source` prints the literal string `null`
+and exits zero — `"" | split(" ")` is an empty array, and `first` of that is null — so `-n` sees
+four characters, calls it non-empty, and the comparison proceeds to find `null` equal to `null`
+and pass. That is exactly the vacuous agreement the guard was added to prevent, sailing through
+the guard.
+
+And a correction to why this section exists. I wrote that a dead generator passes vacuously; on a
+workflow with `set -euo pipefail` it does not, because `pipefail` carries the generator's failure
+through the pipe. The dead generator was already refused — just silently, with no `::error::` to
+diagnose it. The real teeth here are the vacuous comparison and the diagnosis, not the dead
+generator. Run the generator into a file anyway: `pipefail` is a habit, not a guarantee, and the
+status is worth testing where you can see it.
 
 **Compare the whole marker on every tier except `head`, and the tier alone on `head`.**
 The asymmetry is not fussiness. A `head:` marker carries a sha that moves with every
