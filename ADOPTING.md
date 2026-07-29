@@ -565,11 +565,28 @@ under `[console_scripts]` rather than from `pyproject.toml`.
 ## The check
 
 ```sh
-pip install "git+https://github.com/lbartoszcze/AutoVersion@v0.1.0"
+python3 -m venv "$RUNNER_TEMP/rule"
+"$RUNNER_TEMP/rule/bin/python" -m pip install --quiet \
+  "git+https://github.com/lbartoszcze/AutoVersion@v0.1.0"
+echo "$RUNNER_TEMP/rule/bin" >> "$GITHUB_PATH"
 autoversion decide --current "$released" \
   --published-surface released-surface.json \
   --candidate-surface "$candidate" --json
 ```
+
+**Install into a virtual environment, not the system interpreter.** A bare
+`pip install git+…` was what this document said first, and it is a permanently red gate on a
+current runner: `ubuntu-latest` now resolves to Ubuntu 24.04, whose system `python3` carries
+the externally-managed marker, so the install fails with
+`error: externally-managed-environment` before any check runs. A gate that can never pass is
+worth what one that can never fail is worth. The venv sidesteps the marker without
+`--break-system-packages`, and putting its `bin` on `GITHUB_PATH` keeps every later step's
+`autoversion` call unchanged.
+
+Then assert the rule actually answers before anything downstream claims a verdict — one
+`autoversion --help` or a known-answer `decide` is enough. Proven load-bearing by putting a
+sabotaged `autoversion` first on `PATH`: with the install step the gate passes, without it the
+saboteur answers and the gate fails.
 
 Then compare the version the product declares with the version the rule derived:
 
