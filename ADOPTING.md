@@ -442,7 +442,11 @@ truthful and the baseline is stale. Compare against the best reachable artifact 
 same step:
 
 ```sh
-best="$(python3 scripts/baseline.py --stdout | jq -r '.source | split(" ") | first')"
+python3 scripts/baseline.py --stdout > "$RUNNER_TEMP/best.json" || {
+  echo "::error::the baseline generator failed, so the best reachable tier is unknown"; false; }
+best="$(jq -r '.source | split(" ") | first' "$RUNNER_TEMP/best.json")"
+[ -n "$best" ] && [ -n "$marker" ] || {
+  echo "::error::a marker read empty, so this comparison would be vacuous"; false; }
 if [ "${marker%%:*}" = head ]; then want="${best%%:*}"; have="${marker%%:*}"
 else want="$best"; have="$marker"; fi
 if [ "$want" != "$have" ]; then
@@ -450,6 +454,13 @@ if [ "$want" != "$have" ]; then
   false
 fi
 ```
+
+The first four lines are not ceremony, and the shorter form I published first was wrong. In a
+command substitution containing a pipeline the generator's exit status is **discarded**, and
+`set -e` does not reach inside one. So a dead generator yields an empty `best`, and the step
+blames the wrong thing — or, if the committed marker ever also reads empty, compares `""`
+against `""` and **passes vacuously**. Run the generator into a file, test its status
+explicitly, and assert both markers are non-empty before comparing them.
 
 **Compare the whole marker on every tier except `head`, and the tier alone on `head`.**
 The asymmetry is not fussiness. A `head:` marker carries a sha that moves with every
