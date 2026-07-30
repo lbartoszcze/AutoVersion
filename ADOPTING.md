@@ -457,12 +457,26 @@ crates.io returns the *same* envelope for "no such crate" and for a policy refus
 default, which is the default state of many CI images. So match the detail *string*
 (`does not exist`), never the presence of `errors`, and send a User-Agent.
 
-Two smaller consequences. A listing subcommand may be defective regardless of spelling —
-here `ls` reports "0 of 0" for six objects that demonstrably exist, both ways, so an
-assertion built on it cannot fail and therefore certifies nothing. And read the field that
-answers your question: on a present object `state` is authoritative while `version` is
-empty and `detail` carries an unrelated diagnostic, so a check branching on `detail`
-inverts its own answer.
+Two smaller consequences, and the first one carries a correction worth more than the
+observation it replaces. Read the field that answers your question: on a present object
+`state` is authoritative while `version` is empty and `detail` carries an unrelated
+diagnostic, so a check branching on `detail` inverts its own answer.
+
+And this document previously said a listing subcommand was defective regardless of spelling,
+because `ls` reported "0 of 0" for six objects that demonstrably existed. **That was measured
+against a stale binary.** The installed control plane predated its own source by eighty
+minutes, and a commit in between — *"resolve object paths in one place"* — had already fixed
+it. Built from the source the fleet was reading, the same command answers `6 of 6`. The bare
+path still lists nothing, and that is correct rather than broken: without the namespace root a
+bare path is a raw backend key that genuinely does not exist, exactly as it is for `stat`.
+
+So the durable lesson is not about that tool. Six agents and I diagnosed a defect that had
+already been repaired, because every one of us compared the tool's *answer* to the tool's
+*source* without once checking that the binary was built from it. That is the silent-argument
+error one level up: the probe ran, succeeded, and answered truthfully about a different build
+than the one under discussion. Before concluding that a tool is broken, establish its
+provenance — compare the binary's build time to the last change of the source you read, or
+build from that source and ask again.
 
 One workspace rule ties three surprises together, so learn it once rather than three
 times: **any index or key that would need a lone number has a word form.** `jq '… | first'`
