@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "product": "autoversion",
+  "releases": true,
+  "version_source": {
+    "kind": "json",
+    "path": "released-surface.json",
+    "pointer": "/version"
+  },
+  "platforms": {
+    "source": {
+      "runner_platform": "linux-amd64",
+      "quality": [
+        {
+          "name": "release-metadata",
+          "argv": [
+            "python3",
+            "scripts/stado_release.py",
+            "quality"
+          ]
+        }
+      ],
+      "build": {
+        "argv": [
+          "python3",
+          "scripts/stado_release.py",
+          "build"
+        ]
+      },
+      "stage": {
+        "release/source-bundle.tar": "release/source-bundle.tar"
+      }
+    }
+  },
+  "promotion": {
+    "channels": [
+      "stable"
+    ],
+    "reconcile": false
+  },
+  "inputs": {},
+  "deliveries": []
+}
