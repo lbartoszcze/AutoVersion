@@ -232,7 +232,7 @@ and feeding each side as a surface file. It cannot be checked against the orderi
 cases at all, because no command it exposes compares two versions.
 
 The Python port in this repository reproduces **all twenty-five cases**, ordering
-included, through `conformance.py`.
+included, through `scripts/conformance.py`.
 
 ### The suite was then attacked, and one section did not survive
 

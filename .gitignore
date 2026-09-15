@@ -1,0 +1,6 @@
+# setuptools writes these beside the source on every build. The version is
+# derived from the git tag, so nothing here is a source of truth.
+build/
+dist/
+*.egg-info/
+__pycache__/

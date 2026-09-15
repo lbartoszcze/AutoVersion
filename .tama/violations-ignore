@@ -1,0 +1,10 @@
+# Audit exclusions for `tama find-violations`: paths fixed by something
+# outside this project.
+#
+# The repository root. Every file here is read by a tool at exactly this
+# path: pip and setuptools read pyproject.toml, which names README.md and the
+# licence beside it; the release tooling reads .wisent-release.json and the
+# released-surface.json it points at; and git reads .gitignore. The prose
+# moved to docs/ and the conformance runner to scripts/, so what is left is
+# only what cannot move.
+.

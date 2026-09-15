@@ -1,4 +1,4 @@
-"""Check a port against FIXTURES.md.
+"""Check a port against docs/FIXTURES.md.
 
 The fixtures are the contract between ports; the compiler keeps nothing honest
 across languages, so this runner does. It reads the cases the way the fixtures
@@ -81,7 +81,7 @@ def check(cases: dict) -> list:
 
 def main() -> int:
     here = pathlib.Path(__file__).resolve().parent
-    cases = load_cases(here / "FIXTURES.md")
+    cases = load_cases(here.parent / "docs" / "FIXTURES.md")
     counts = {name: len(section) for name, section in cases.items()}
     failures = check(cases)
 

@@ -26,7 +26,7 @@ lower it. Evidence outranks intent.
 
 Which slot moves depends on the current version, because while the major slot is
 zero the minor slot carries the compatibility boundary. The full table is in
-[`SPEC.md`](SPEC.md).
+[`docs/SPEC.md`](docs/SPEC.md).
 
 ## What a surface is
 
@@ -57,16 +57,16 @@ had been written three times independently, and the copies disagreed about what 
 ## Ports
 
 Each language keeps a small implementation. The compiler cannot keep them honest
-across languages, so [`FIXTURES.md`](FIXTURES.md) does:
+across languages, so [`docs/FIXTURES.md`](docs/FIXTURES.md) does:
 
 ```sh
-python3 conformance.py
+python3 scripts/conformance.py
 ```
 
 An implementation is a port when it reproduces every case. Adding a case is a
 change to the rule and belongs in the same commit as the ports that satisfy it.
 
-`FIXTURES.md` also records what the suite has caught and, more usefully, one thing
+`docs/FIXTURES.md` also records what the suite has caught and, more usefully, one thing
 it currently fails to catch.
 
 ## What this repository must never grow
@@ -78,7 +78,7 @@ it currently fails to catch.
 
 ## Adopting it
 
-[`ADOPTING.md`](ADOPTING.md) is the operational half: how to decide whether the rule
+[`docs/adopting.md`](docs/adopting.md) is the operational half: how to decide whether the rule
 applies to a repository at all, how to choose a surface, where a baseline comes from,
 and the refusals that are correct outcomes rather than failures.
 
