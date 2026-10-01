@@ -131,7 +131,7 @@ present, and fail if the control comes back empty. Four instances, all real:
   This is a third failure class, distinct from silence. A positive control catches a probe
   that could not run; it does not catch one that ran, succeeded, and answered about
   something else. The request completes, the answer is unambiguous, and it is false —
-  which is worse than a timeout, because a tool that says "the store answered, it is not
+  which is worse than a request that never answers, because a tool that says "the store answered, it is not
   there" is now vouching for a wrong answer. Only a control on a subject you know
   independently to exist can catch that.
 
