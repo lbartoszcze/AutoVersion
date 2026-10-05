@@ -231,8 +231,9 @@ and every refusal**, driven by extracting the block with the reader described ab
 and feeding each side as a surface file. It cannot be checked against the ordering
 cases at all, because no command it exposes compares two versions.
 
-The Python port in this repository reproduces **all twenty-five cases**, ordering
-included, through `scripts/conformance.py`.
+The Python port this repository held until it was rewritten in Rust reproduced **all
+twenty-five cases**, ordering included; the Rust port runs them with
+`cargo test --test conformance`.
 
 ### The suite was then attacked, and one section did not survive
 

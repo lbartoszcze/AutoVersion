@@ -2,13 +2,16 @@
 
 One versioning rule, shared by repositories that have nothing else in common.
 
-```python
-from autoversion import decide
-
-decide("0.1.0", published=["chat", "steer"], candidate=["chat"])
-# {'current': '0.1.0', 'change': 'breaking', 'next': '0.2.0',
-#  'removed': ['steer'], 'added': []}
+```sh
+$ autoversion decide --current 0.1.0 \
+    --published-surface published.json --candidate-surface candidate.json
+current: 0.1.0
+change: breaking
+next: 0.2.0
+removed: steer
 ```
+
+From Rust the same answer is `autoversion::decide("0.1.0", &published, &candidate, false)`.
 
 ## What it answers
 
@@ -60,7 +63,7 @@ Each language keeps a small implementation. The compiler cannot keep them honest
 across languages, so [`docs/FIXTURES.md`](docs/FIXTURES.md) does:
 
 ```sh
-python3 scripts/conformance.py
+cargo test --test conformance
 ```
 
 An implementation is a port when it reproduces every case. Adding a case is a
@@ -84,8 +87,10 @@ and the refusals that are correct outcomes rather than failures.
 
 **Read it from `main`.** It postdates the `v0.1.0` tag, so a checkout of the pinned
 install does not contain it — three adopting repositories reported that independently.
-Pinning `@v0.1.0` for the install remains right: the rule's surface is unchanged since
-that tag, which the repository's own frozen baseline records.
+`v0.1.0` is the Python implementation, installed with pip; `main` is the Rust one,
+installed with `cargo install --locked --git https://github.com/lbartoszcze/AutoVersion
+--tag <tag> autoversion` once a tag carries it. The commands, flags, answers and exit
+codes are the same.
 
 ## A note on its own version
 
@@ -94,9 +99,10 @@ from the git tag. That is not a stylistic choice — the workspace this was writ
 refuses numeric literals in source files, which is also why the fixtures live inside
 a document rather than a `.json` file, and why two cases are still missing.
 
-It is held to its own rule: `scripts/surface.py` extracts what a caller of this
-package holds — the names in `__all__`, plus the console script and the subcommands it
-advertises — and `released-surface.json` freezes what `v0.1.0` published.
+It is held to its own rule: `released-surface.json` freezes what `v0.1.0` published —
+the exported names and the `autoversion` subcommands. The Rust library exports the same
+names and the command advertises the same subcommands; what goes is the Python import
+path, which is a breaking change for anyone who imported `autoversion` in Python.
 
 ## License
 

@@ -1,0 +1,26 @@
+[package]
+name = "autoversion"
+# No version is written here: the released version is the git tag, as before.
+edition = "2021"
+description = "One versioning rule, shared by repositories that have nothing else in common"
+license = "MIT"
+repository = "https://github.com/lbartoszcze/AutoVersion"
+autotests = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "autoversion"
+path = "src/main.rs"
+
+# Reproduces every case in docs/FIXTURES.md: `cargo test --test conformance`.
+[[test]]
+name = "conformance"
+path = "tests/conformance/main.rs"
+harness = false
+
+[dependencies]
+serde_json = "1"
+tree-sitter = "0.25"
+tree-sitter-python = "0.25"
