@@ -202,13 +202,17 @@ pub fn python_declared(path: &Path) -> Result<Vec<String>, SurfaceError> {
     Ok(names)
 }
 
-/// The declared surface, or the inferred one when the caller permits it, with
-/// whether it was inferred, so a caller can say so instead of presenting a
-/// guess as a declaration.
-pub fn python_surface(path: &Path, allow_fallback: bool) -> Result<(Vec<String>, bool), SurfaceError> {
-    match python_all(path) {
-        Ok(names) => Ok((names, false)),
-        Err(_) if allow_fallback => Ok((python_declared(path)?, true)),
-        Err(error) => Err(error),
+/// The surface the caller names: the module's `__all__`, or with
+/// `module_bindings` its public module-level bindings. Never one after the
+/// other: a tree without `__all__` is refused rather than read by another
+/// rule than the tree it is compared with.
+pub fn python_surface(path: &Path, module_bindings: bool) -> Result<Vec<String>, SurfaceError> {
+    if module_bindings {
+        return python_declared(path);
     }
+    python_all(path).map_err(|error| {
+        SurfaceError(format!(
+            "{error}; name the module bindings as the surface with --module-bindings if that is what the package promises"
+        ))
+    })
 }

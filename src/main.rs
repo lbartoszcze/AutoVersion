@@ -16,8 +16,8 @@ use autoversion::surfaces;
 
 const USAGE: &str = "usage:
   autoversion [--json] decide --current VERSION --published-surface FILE --candidate-surface FILE [--breaking]
-  autoversion [--json] check --current VERSION --published-init FILE --candidate-init FILE [--expect VERSION] [--breaking] [--fallback]
-  autoversion surface --python-init FILE [--fallback]
+  autoversion [--json] check --current VERSION --published-init FILE --candidate-init FILE [--expect VERSION] [--breaking] [--module-bindings]
+  autoversion surface --python-init FILE [--module-bindings]
   autoversion [--json] order --older VERSION --newer VERSION";
 
 enum Failure {
@@ -146,18 +146,16 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             let flags = Flags::parse(
                 rest,
                 &["--current", "--published-init", "--candidate-init", "--expect"],
-                &["--breaking", "--fallback", "--json"],
+                &["--breaking", "--module-bindings", "--json"],
             )?;
-            let fallback = flags.switch("--fallback");
-            let (published, published_guessed) =
-                surfaces::python_surface(Path::new(flags.required("--published-init")?), fallback)?;
-            let (candidate, candidate_guessed) =
-                surfaces::python_surface(Path::new(flags.required("--candidate-init")?), fallback)?;
+            let bindings = flags.switch("--module-bindings");
+            let published = surfaces::python_surface(Path::new(flags.required("--published-init")?), bindings)?;
+            let candidate = surfaces::python_surface(Path::new(flags.required("--candidate-init")?), bindings)?;
             let answer =
                 autoversion::decide(flags.required("--current")?, &published, &candidate, flags.switch("--breaking"))?;
             let mut fields = answer_fields(&answer);
-            if published_guessed || candidate_guessed {
-                fields.push(("surface", json!("inferred, because __all__ is absent")));
+            if bindings {
+                fields.push(("surface", json!("module bindings")));
             }
             emit(&fields, global_json || flags.switch("--json"));
             let next = answer.get("next").and_then(Value::as_str).unwrap_or_default();
@@ -169,13 +167,13 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             }
         }
         "surface" => {
-            let flags = Flags::parse(rest, &["--python-init"], &["--fallback", "--json"])?;
-            let (names, guessed) =
-                surfaces::python_surface(Path::new(flags.required("--python-init")?), flags.switch("--fallback"))?;
+            let flags = Flags::parse(rest, &["--python-init"], &["--module-bindings", "--json"])?;
+            let bindings = flags.switch("--module-bindings");
+            let names = surfaces::python_surface(Path::new(flags.required("--python-init")?), bindings)?;
             let mut document = BTreeMap::new();
             document.insert("surface", json!(names));
-            if guessed {
-                document.insert("inferred", json!("no __all__; names were read from module-level bindings"));
+            if bindings {
+                document.insert("source", json!("module bindings"));
             }
             println!("{}", serde_json::to_string_pretty(&document).unwrap_or_default());
             Ok(())
