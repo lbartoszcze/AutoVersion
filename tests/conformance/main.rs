@@ -14,7 +14,13 @@ use serde_json::Value;
 fn names(value: &Value) -> Vec<String> {
     value
         .as_array()
-        .map(|items| items.iter().filter_map(Value::as_str).map(str::to_string).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -23,14 +29,21 @@ fn text<'a>(case: &'a Value, key: &str) -> &'a str {
 }
 
 fn section<'a>(cases: &'a Value, name: &str) -> &'a [Value] {
-    cases.get(name).and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default()
+    cases
+        .get(name)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
 }
 
 fn check(cases: &Value) -> Vec<String> {
     let mut failures = Vec::new();
     for case in section(cases, "classify") {
         let name = text(case, "name");
-        let declared = case.get("declared_breaking").and_then(Value::as_bool).unwrap_or(false);
+        let declared = case
+            .get("declared_breaking")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let got = match autoversion::decide(
             text(case, "current"),
             &names(&case["published"]),
@@ -39,12 +52,20 @@ fn check(cases: &Value) -> Vec<String> {
         ) {
             Ok(got) => got,
             Err(error) => {
-                failures.push(format!("classify {name:?}: refused with {}", error.refusal()));
+                failures.push(format!(
+                    "classify {name:?}: refused with {}",
+                    error.refusal()
+                ));
                 continue;
             }
         };
         let want = &case["expect"];
-        for (field, expected) in [("change", "class"), ("next", "next"), ("removed", "removed"), ("added", "added")] {
+        for (field, expected) in [
+            ("change", "class"),
+            ("next", "next"),
+            ("removed", "removed"),
+            ("added", "added"),
+        ] {
             if got[field] != want[expected] {
                 failures.push(format!(
                     "classify {name:?}: {field} was {}, expected {}",
@@ -73,15 +94,22 @@ fn check(cases: &Value) -> Vec<String> {
     for case in section(cases, "order") {
         let (name, older, newer) = (text(case, "name"), text(case, "older"), text(case, "newer"));
         if !autoversion::version_newer(older, newer) {
-            failures.push(format!("order {name:?}: {newer:?} did not sort after {older:?}"));
+            failures.push(format!(
+                "order {name:?}: {newer:?} did not sort after {older:?}"
+            ));
         }
         if autoversion::version_newer(newer, older) {
-            failures.push(format!("order {name:?}: the comparison is not strict in one direction"));
+            failures.push(format!(
+                "order {name:?}: the comparison is not strict in one direction"
+            ));
         }
     }
     for case in section(cases, "order_equal") {
         if autoversion::version_newer(text(case, "left"), text(case, "right")) {
-            failures.push(format!("order_equal {:?}: a version outranked itself", text(case, "name")));
+            failures.push(format!(
+                "order_equal {:?}: a version outranked itself",
+                text(case, "name")
+            ));
         }
     }
     failures
@@ -119,7 +147,10 @@ fn main() -> ExitCode {
         println!("\nall {total} cases reproduced");
         return ExitCode::SUCCESS;
     }
-    println!("\n{} disagreement(s) out of {total} case(s):", failures.len());
+    println!(
+        "\n{} disagreement(s) out of {total} case(s):",
+        failures.len()
+    );
     for failure in failures {
         println!("  {failure}");
     }

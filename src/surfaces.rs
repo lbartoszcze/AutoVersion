@@ -38,7 +38,10 @@ fn parse(path: &Path) -> Result<(String, Tree), SurfaceError> {
         .parse(&source, None)
         .ok_or_else(|| SurfaceError(format!("{}: the parser returned no tree", path.display())))?;
     if tree.root_node().has_error() {
-        return Err(SurfaceError(format!("{}: not parseable Python", path.display())));
+        return Err(SurfaceError(format!(
+            "{}: not parseable Python",
+            path.display()
+        )));
     }
     Ok((source, tree))
 }
@@ -58,7 +61,9 @@ fn string_literal(node: Node, source: &str) -> Option<String> {
     for child in node.children(&mut cursor) {
         match child.kind() {
             "string_start" => {
-                let prefix = text(child, source).trim_end_matches(['"', '\'']).to_ascii_lowercase();
+                let prefix = text(child, source)
+                    .trim_end_matches(['"', '\''])
+                    .to_ascii_lowercase();
                 if prefix.contains('b') || prefix.contains('f') || prefix.contains('t') {
                     return None;
                 }
@@ -97,14 +102,16 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
         if node.kind() != "assignment" {
             continue;
         }
-        let Some(left) = node.child_by_field_name("left") else { continue };
+        let Some(left) = node.child_by_field_name("left") else {
+            continue;
+        };
         if left.kind() != "identifier" || text(left, &source) != "__all__" {
             continue;
         }
         let value = node.child_by_field_name("right");
-        let Some(value) = value.filter(|value| {
-            matches!(value.kind(), "list" | "tuple" | "set" | "expression_list")
-        }) else {
+        let Some(value) = value
+            .filter(|value| matches!(value.kind(), "list" | "tuple" | "set" | "expression_list"))
+        else {
             return Err(SurfaceError(format!(
                 "{}: __all__ is not a literal list, tuple or set, so its contents cannot be read \
                  without executing the module",

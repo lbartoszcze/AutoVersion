@@ -45,7 +45,10 @@ struct Flags {
 
 impl Flags {
     fn parse(words: &[String], valued: &[&str], switches: &[&str]) -> Result<Self, Failure> {
-        let mut flags = Flags { values: BTreeMap::new(), switches: Vec::new() };
+        let mut flags = Flags {
+            values: BTreeMap::new(),
+            switches: Vec::new(),
+        };
         let mut words = words.iter();
         while let Some(word) = words.next() {
             if valued.contains(&word.as_str()) {
@@ -75,9 +78,10 @@ impl Flags {
 }
 
 fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
-    let text = std::fs::read_to_string(path).map_err(|error| Failure::Refused(format!("{path}: {error}")))?;
-    let document: Value =
-        serde_json::from_str(&text).map_err(|error| Failure::Refused(format!("{path}: not JSON: {error}")))?;
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| Failure::Refused(format!("{path}: {error}")))?;
+    let document: Value = serde_json::from_str(&text)
+        .map_err(|error| Failure::Refused(format!("{path}: not JSON: {error}")))?;
     let names = document.get("surface").ok_or_else(|| {
         Failure::Refused(format!(
             "{path}: no \"surface\" key. A surface document is {{\"surface\": [\"name\", ...]}}"
@@ -85,7 +89,12 @@ fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
     })?;
     names
         .as_array()
-        .and_then(|names| names.iter().map(|name| name.as_str().map(str::to_string)).collect())
+        .and_then(|names| {
+            names
+                .iter()
+                .map(|name| name.as_str().map(str::to_string))
+                .collect()
+        })
         .ok_or_else(|| Failure::Refused(format!("{path}: \"surface\" is not a list of names")))
 }
 
@@ -93,13 +102,21 @@ fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
 /// that holds something.
 fn emit(payload: &[(&str, Value)], as_json: bool) {
     if as_json {
-        let sorted: BTreeMap<&str, &Value> = payload.iter().map(|(key, value)| (*key, value)).collect();
-        println!("{}", serde_json::to_string_pretty(&sorted).unwrap_or_default());
+        let sorted: BTreeMap<&str, &Value> =
+            payload.iter().map(|(key, value)| (*key, value)).collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&sorted).unwrap_or_default()
+        );
         return;
     }
     for (key, value) in payload {
         let rendered = match value {
-            Value::Array(items) => items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "),
+            Value::Array(items) => items
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join(", "),
             Value::String(text) => text.clone(),
             other => other.to_string(),
         };
@@ -137,28 +154,49 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             )?;
             let published = read_surface(flags.required("--published-surface")?)?;
             let candidate = read_surface(flags.required("--candidate-surface")?)?;
-            let answer =
-                autoversion::decide(flags.required("--current")?, &published, &candidate, flags.switch("--breaking"))?;
-            emit(&answer_fields(&answer), global_json || flags.switch("--json"));
+            let answer = autoversion::decide(
+                flags.required("--current")?,
+                &published,
+                &candidate,
+                flags.switch("--breaking"),
+            )?;
+            emit(
+                &answer_fields(&answer),
+                global_json || flags.switch("--json"),
+            );
             Ok(())
         }
         "check" => {
             let flags = Flags::parse(
                 rest,
-                &["--current", "--published-init", "--candidate-init", "--expect"],
+                &[
+                    "--current",
+                    "--published-init",
+                    "--candidate-init",
+                    "--expect",
+                ],
                 &["--breaking", "--module-bindings", "--json"],
             )?;
             let bindings = flags.switch("--module-bindings");
-            let published = surfaces::python_surface(Path::new(flags.required("--published-init")?), bindings)?;
-            let candidate = surfaces::python_surface(Path::new(flags.required("--candidate-init")?), bindings)?;
-            let answer =
-                autoversion::decide(flags.required("--current")?, &published, &candidate, flags.switch("--breaking"))?;
+            let published =
+                surfaces::python_surface(Path::new(flags.required("--published-init")?), bindings)?;
+            let candidate =
+                surfaces::python_surface(Path::new(flags.required("--candidate-init")?), bindings)?;
+            let answer = autoversion::decide(
+                flags.required("--current")?,
+                &published,
+                &candidate,
+                flags.switch("--breaking"),
+            )?;
             let mut fields = answer_fields(&answer);
             if bindings {
                 fields.push(("surface", json!("module bindings")));
             }
             emit(&fields, global_json || flags.switch("--json"));
-            let next = answer.get("next").and_then(Value::as_str).unwrap_or_default();
+            let next = answer
+                .get("next")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             match flags.values.get("--expect") {
                 Some(expected) if expected != next => Err(Failure::Refused(format!(
                     "the surface change requires {next}, but the product declares {expected}"
@@ -169,22 +207,34 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
         "surface" => {
             let flags = Flags::parse(rest, &["--python-init"], &["--module-bindings", "--json"])?;
             let bindings = flags.switch("--module-bindings");
-            let names = surfaces::python_surface(Path::new(flags.required("--python-init")?), bindings)?;
+            let names =
+                surfaces::python_surface(Path::new(flags.required("--python-init")?), bindings)?;
             let mut document = BTreeMap::new();
             document.insert("surface", json!(names));
             if bindings {
                 document.insert("source", json!("module bindings"));
             }
-            println!("{}", serde_json::to_string_pretty(&document).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&document).unwrap_or_default()
+            );
             Ok(())
         }
         "order" => {
             let flags = Flags::parse(rest, &["--older", "--newer"], &["--json"])?;
             let older = flags.required("--older")?;
             let newer = flags.required("--newer")?;
-            let is_newer = if autoversion::version_newer(older, newer) { "True" } else { "False" };
+            let is_newer = if autoversion::version_newer(older, newer) {
+                "True"
+            } else {
+                "False"
+            };
             emit(
-                &[("older", json!(older)), ("newer", json!(newer)), ("is_newer", json!(is_newer))],
+                &[
+                    ("older", json!(older)),
+                    ("newer", json!(newer)),
+                    ("is_newer", json!(is_newer)),
+                ],
                 global_json || flags.switch("--json"),
             );
             Ok(())

@@ -57,7 +57,9 @@ impl std::error::Error for RuleError {}
 pub fn is_canonical(value: &str) -> bool {
     !value.is_empty()
         && value.trim() == value
-        && value.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,7 +101,11 @@ impl Version {
                 .flatten()
         };
         match (numeric(major), numeric(minor), numeric(patch)) {
-            (Some(major), Some(minor), Some(patch)) => Ok(Version { major, minor, patch }),
+            (Some(major), Some(minor), Some(patch)) => Ok(Version {
+                major,
+                minor,
+                patch,
+            }),
             _ => Err(RuleError::NotNumeric(format!(
                 "{value:?} has a non-numeric slot, so advancing it would invent an ordering; \
                  name the next version explicitly"
@@ -109,19 +115,39 @@ impl Version {
 
     /// The version this change produces. See the table in `docs/SPEC.md`.
     pub fn advance(&self, change: &str) -> Version {
-        let Version { major, minor, patch } = *self;
+        let Version {
+            major,
+            minor,
+            patch,
+        } = *self;
         if change == BREAKING {
             if self.is_unstable() {
-                return Version { major, minor: minor + 1, patch: 0 };
+                return Version {
+                    major,
+                    minor: minor + 1,
+                    patch: 0,
+                };
             }
-            return Version { major: major + 1, minor: 0, patch: 0 };
+            return Version {
+                major: major + 1,
+                minor: 0,
+                patch: 0,
+            };
         }
         if change == ADDITIVE && !self.is_unstable() {
-            return Version { major, minor: minor + 1, patch: 0 };
+            return Version {
+                major,
+                minor: minor + 1,
+                patch: 0,
+            };
         }
         // An additive change under an unstable major is compatible, exactly like
         // an internal one, and the patch slot is the only one left to hold it.
-        Version { major, minor, patch: patch + 1 }
+        Version {
+            major,
+            minor,
+            patch: patch + 1,
+        }
     }
 }
 
@@ -144,8 +170,14 @@ pub fn classify(
 ) -> Result<(&'static str, Vec<String>, Vec<String>), RuleError> {
     let before = surface(published, "published")?;
     let after = surface(candidate, "candidate")?;
-    let removed: Vec<String> = before.difference(&after).map(|name| name.to_string()).collect();
-    let added: Vec<String> = after.difference(&before).map(|name| name.to_string()).collect();
+    let removed: Vec<String> = before
+        .difference(&after)
+        .map(|name| name.to_string())
+        .collect();
+    let added: Vec<String> = after
+        .difference(&before)
+        .map(|name| name.to_string())
+        .collect();
     let change = if declared_breaking || !removed.is_empty() {
         BREAKING
     } else if !added.is_empty() {
@@ -212,14 +244,20 @@ fn integer(token: &str) -> Option<String> {
     let well_formed = !bytes.is_empty()
         && bytes.first().is_some_and(u8::is_ascii_digit)
         && bytes.last().is_some_and(u8::is_ascii_digit)
-        && bytes.iter().all(|byte| byte.is_ascii_digit() || *byte == b'_')
+        && bytes
+            .iter()
+            .all(|byte| byte.is_ascii_digit() || *byte == b'_')
         && !token.contains("__");
     if !well_formed {
         return None;
     }
     let digits: String = token.chars().filter(char::is_ascii_digit).collect();
     let significant = digits.trim_start_matches('0');
-    Some(if significant.is_empty() { "0".to_string() } else { significant.to_string() })
+    Some(if significant.is_empty() {
+        "0".to_string()
+    } else {
+        significant.to_string()
+    })
 }
 
 /// Split on `.` and `-`; numeric tokens as numbers, sorting before strings.
