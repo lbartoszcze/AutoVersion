@@ -82,15 +82,47 @@ fn string_literal(node: Node, source: &str) -> Option<String> {
     Some(value)
 }
 
-/// Every node of the tree, depth first.
+/// Module-scope nodes, including definition-time expressions but not nested bodies.
 fn walk(root: Node) -> Vec<Node> {
     let mut found = Vec::new();
     let mut pending = vec![root];
     while let Some(node) = pending.pop() {
+        if matches!(node.kind(), "parameters" | "lambda_parameters") {
+            let mut cursor = node.walk();
+            if cursor.goto_last_child() {
+                loop {
+                    let parameter = cursor.node();
+                    // The grammar separates executed expressions from local bindings.
+                    pending.extend(parameter.child_by_field_name("value"));
+                    pending.extend(parameter.child_by_field_name("type"));
+                    if !cursor.goto_previous_sibling() {
+                        break;
+                    }
+                }
+            }
+            continue;
+        }
+        let excluded_body = if matches!(
+            node.kind(),
+            "function_definition" | "class_definition" | "lambda"
+        ) {
+            node.child_by_field_name("body")
+        } else {
+            None
+        };
         found.push(node);
         let mut cursor = node.walk();
-        let children: Vec<Node> = node.children(&mut cursor).collect();
-        pending.extend(children.into_iter().rev());
+        if cursor.goto_last_child() {
+            loop {
+                let child = cursor.node();
+                if Some(child) != excluded_body {
+                    pending.push(child);
+                }
+                if !cursor.goto_previous_sibling() {
+                    break;
+                }
+            }
+        }
     }
     found
 }
@@ -98,8 +130,20 @@ fn walk(root: Node) -> Vec<Node> {
 /// The names in a Python module's `__all__`.
 pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
     let (source, tree) = parse(path)?;
+    let mut surface = None;
     for node in walk(tree.root_node()) {
-        if node.kind() != "assignment" {
+        if node.kind() == "identifier" && text(node, &source) == "__all__" {
+            let is_assignment_target = node.parent().is_some_and(|parent| {
+                parent.kind() == "assignment" && parent.child_by_field_name("left") == Some(node)
+            });
+            if !is_assignment_target {
+                return Err(SurfaceError(format!(
+                    "{}: __all__ is referenced outside a literal assignment; mutation, deletion or aliasing requires a product-extracted surface",
+                    path.display()
+                )));
+            }
+        }
+        if !matches!(node.kind(), "assignment" | "augmented_assignment") {
             continue;
         }
         let Some(left) = node.child_by_field_name("left") else {
@@ -107,6 +151,17 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
         };
         if left.kind() != "identifier" || text(left, &source) != "__all__" {
             continue;
+        }
+        let direct_module_assignment = node
+            .parent()
+            .filter(|parent| parent.kind() == "expression_statement")
+            .and_then(|parent| parent.parent())
+            .is_some_and(|parent| parent.kind() == "module");
+        if node.kind() != "assignment" || !direct_module_assignment {
+            return Err(SurfaceError(format!(
+                "{}: __all__ must be a direct module-level literal assignment; conditional or augmented assignments require a product-extracted surface",
+                path.display()
+            )));
         }
         let value = node.child_by_field_name("right");
         let Some(value) = value
@@ -132,14 +187,16 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
             })?;
             names.push(name);
         }
-        return Ok(names);
+        surface = Some(names);
     }
-    Err(SurfaceError(format!(
-        "{}: no __all__ found. A package without one has no declared public surface, so a \
+    surface.ok_or_else(|| {
+        SurfaceError(format!(
+            "{}: no __all__ found. A package without one has no declared public surface, so a \
          release cannot be classified from it — declare __all__, or supply a surface the \
          product extracts itself",
-        path.display()
-    )))
+            path.display()
+        ))
+    })
 }
 
 /// Public names a module binds, for packages that have not declared `__all__`:

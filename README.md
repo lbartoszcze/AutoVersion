@@ -44,6 +44,22 @@ both sides were extracted the same way.
 {"surface": ["chat", "steer", "evaluate"]}
 ```
 
+`autoversion surface --python-init FILE` reads direct module-level literal
+`__all__` assignments without importing the package. Function and class-local
+declarations do not define the module's surface; a later literal module
+assignment replaces an earlier one. Definition-time expressions remain visible:
+function and lambda defaults, annotations, decorators and class bases can refer
+to or mutate the module declaration even though nested bodies are excluded.
+Parameter names themselves are local bindings, not module references.
+Conditional and augmented assignments are
+refused rather than guessed. References to `__all__` outside the literal
+assignment target are also refused: method calls, subscripts, deletion and
+aliases can change or expose the declared collection without a new literal.
+Supply a product-extracted surface when determining the names requires
+execution. `--module-bindings` explicitly selects the
+different module-binding convention for both trees; it is never an automatic
+substitute for a missing `__all__`.
+
 ## Why this is a separate repository
 
 Because the consumers have nothing in common except this question.
