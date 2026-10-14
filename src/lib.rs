@@ -8,6 +8,7 @@
 //! It holds no knowledge of release channels, credentials, build systems, or any
 //! product's layout. Surface extraction belongs to the product.
 
+#[cfg(feature = "surfaces")]
 pub mod surfaces;
 
 use std::cmp::Ordering;

@@ -88,6 +88,17 @@ change to the rule and belongs in the same commit as the ports that satisfy it.
 `docs/FIXTURES.md` also records what the suite has caught and, more usefully, one thing
 it currently fails to catch.
 
+A Rust product does not need a port: it depends on this crate for the rule
+alone, without the Python surface reader the `autoversion` binary uses, and
+compiles no parser:
+
+```toml
+autoversion = { git = "https://github.com/lbartoszcze/AutoVersion.git", rev = "<commit>", default-features = false }
+```
+
+`autoversion::decide`, `classify` and `Version` are then the rule itself, and
+`RuleError::refusal` the names the fixtures use.
+
 ## What this repository must never grow
 
 - knowledge of any release channel, storage backend or credential

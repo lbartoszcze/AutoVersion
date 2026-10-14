@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "autoversion"
 path = "src/main.rs"
+required-features = ["surfaces"]
 
 # Reproduces every case in docs/FIXTURES.md: `cargo test --test conformance`.
 [[test]]
@@ -20,7 +21,15 @@ name = "conformance"
 path = "tests/conformance/main.rs"
 harness = false
 
+# The rule needs only serde_json. The Python surface reader, which the
+# autoversion binary uses and a product that extracts its own surface does
+# not, is the `surfaces` feature: a consumer taking the rule alone depends on
+# this crate with `default-features = false` and compiles no parser.
+[features]
+default = ["surfaces"]
+surfaces = ["dep:tree-sitter", "dep:tree-sitter-python"]
+
 [dependencies]
 serde_json = "1"
-tree-sitter = "0.25"
-tree-sitter-python = "0.25"
+tree-sitter = { version = "0.25", optional = true }
+tree-sitter-python = { version = "0.25", optional = true }
