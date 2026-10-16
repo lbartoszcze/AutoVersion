@@ -1,2 +1,4 @@
 # cargo writes its build output here; nothing in it is a source of truth.
 /target/
+# Tools run against this checkout keep their scratch state here.
+/.build/
