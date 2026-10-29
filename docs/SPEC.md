@@ -99,11 +99,18 @@ The rule refuses rather than guesses:
 - **A version that is not three numeric slots.** Real coordinates in this fleet
   include upstream repackagings and incident labels that are not versions at
   all. Advancing one would mean inventing which slot is the minor, so the caller
-  is told to name the next version explicitly.
+  is told to name the next version explicitly. A slot is an unsigned 128-bit
+  number: all digits, at most 2^128 - 1. A wider slot is refused here
+  (`not-numeric`, naming the integer parser's cause) by every implementation,
+  whatever its own integers can hold, so the fixtures answer alike everywhere.
 - **A version carrying surrounding whitespace, or characters outside
   alphanumerics, `.`, `_` and `-`.** Such a string cannot survive a URL path and
   a filesystem key unchanged.
 - **An empty surface on either side.**
+- **A slot the change would advance that already holds the largest number a
+  slot holds** (`slot-exhausted`), 2^128 - 1 by the width above. Incrementing it
+  would leave the slot's width, so the caller is told to name the next version
+  explicitly; an implementation with wider integers refuses it too.
 
 Refusals name the reason, never a fault, and never a substitute value.
 

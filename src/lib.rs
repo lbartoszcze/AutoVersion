@@ -11,7 +11,9 @@
 #[cfg(feature = "surfaces")]
 pub mod surfaces;
 
-use std::cmp::Ordering;
+mod order;
+pub use order::{version_newer, version_tuple, Token};
+
 use std::collections::BTreeSet;
 use std::fmt;
 
@@ -28,6 +30,7 @@ pub enum RuleError {
     NotATriple(String),
     NotNumeric(String),
     EmptySurface(String),
+    SlotExhausted(String),
 }
 
 impl RuleError {
@@ -37,6 +40,7 @@ impl RuleError {
             RuleError::NotATriple(_) => "not-a-triple",
             RuleError::NotNumeric(_) => "not-numeric",
             RuleError::EmptySurface(_) => "empty-surface",
+            RuleError::SlotExhausted(_) => "slot-exhausted",
         }
     }
 }
@@ -47,7 +51,8 @@ impl fmt::Display for RuleError {
             RuleError::NotCanonical(message)
             | RuleError::NotATriple(message)
             | RuleError::NotNumeric(message)
-            | RuleError::EmptySurface(message) => f.write_str(message),
+            | RuleError::EmptySurface(message)
+            | RuleError::SlotExhausted(message) => f.write_str(message),
         }
     }
 }
@@ -76,10 +81,17 @@ impl fmt::Display for Version {
     }
 }
 
+// https://semver.org/#spec-item-4 : major version zero is for initial development.
+const UNSTABLE_MAJOR: u128 = 0;
+// https://semver.org/#spec-item-6 : a released change increments one slot by one.
+const STEP: u128 = 1;
+// https://semver.org/#spec-item-7 : the slots below an incremented one are reset to 0.
+const RESET: u128 = 0;
+
 impl Version {
     /// While the major slot is zero, the minor slot carries compatibility.
     pub fn is_unstable(&self) -> bool {
-        self.major == 0
+        self.major == UNSTABLE_MAJOR
     }
 
     pub fn parse(value: &str) -> Result<Version, RuleError> {
@@ -96,59 +108,73 @@ impl Version {
                  name the next version explicitly"
             )));
         };
-        let numeric = |slot: &str| {
-            (!slot.is_empty() && slot.bytes().all(|byte| byte.is_ascii_digit()))
-                .then(|| slot.parse::<u128>().ok())
-                .flatten()
+        // A slot is all ASCII digits and fits the slot width; the refusal names which
+        // of the two a slot failed, the integer parser's own error included.
+        let numeric = |slot: &str| -> Result<u128, String> {
+            if slot.is_empty() || !slot.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(format!("slot {slot:?} is not all digits"));
+            }
+            slot.parse::<u128>()
+                .map_err(|error| format!("slot {slot:?} holds no unsigned 128-bit number: {error}"))
         };
-        match (numeric(major), numeric(minor), numeric(patch)) {
-            (Some(major), Some(minor), Some(patch)) => Ok(Version {
-                major,
-                minor,
-                patch,
-            }),
-            _ => Err(RuleError::NotNumeric(format!(
-                "{value:?} has a non-numeric slot, so advancing it would invent an ordering; \
-                 name the next version explicitly"
-            ))),
-        }
+        let refuse = |cause: String| {
+            RuleError::NotNumeric(format!(
+                "{value:?} is not numeric in every slot ({cause}), so advancing it would invent \
+                 an ordering; name the next version explicitly"
+            ))
+        };
+        Ok(Version {
+            major: numeric(major).map_err(&refuse)?,
+            minor: numeric(minor).map_err(&refuse)?,
+            patch: numeric(patch).map_err(&refuse)?,
+        })
     }
 
     /// The version this change produces. See the table in `docs/SPEC.md`.
-    pub fn advance(&self, change: &str) -> Version {
+    /// A slot already at the largest number it holds cannot be incremented,
+    /// and is refused rather than wrapped to a smaller next version.
+    pub fn advance(&self, change: &str) -> Result<Version, RuleError> {
         let Version {
             major,
             minor,
             patch,
         } = *self;
+        let step = |slot: u128, name: &str| {
+            slot.checked_add(STEP).ok_or_else(|| {
+                RuleError::SlotExhausted(format!(
+                    "{self} cannot advance its {name} slot: {slot} is the largest number a slot \
+                     holds; name the next version explicitly"
+                ))
+            })
+        };
         if change == BREAKING {
             if self.is_unstable() {
-                return Version {
+                return Ok(Version {
                     major,
-                    minor: minor + 1,
-                    patch: 0,
-                };
+                    minor: step(minor, "minor")?,
+                    patch: RESET,
+                });
             }
-            return Version {
-                major: major + 1,
-                minor: 0,
-                patch: 0,
-            };
+            return Ok(Version {
+                major: step(major, "major")?,
+                minor: RESET,
+                patch: RESET,
+            });
         }
         if change == ADDITIVE && !self.is_unstable() {
-            return Version {
+            return Ok(Version {
                 major,
-                minor: minor + 1,
-                patch: 0,
-            };
+                minor: step(minor, "minor")?,
+                patch: RESET,
+            });
         }
         // An additive change under an unstable major is compatible, exactly like
         // an internal one, and the patch slot is the only one left to hold it.
-        Version {
+        Ok(Version {
             major,
             minor,
-            patch: patch + 1,
-        }
+            patch: step(patch, "patch")?,
+        })
     }
 }
 
@@ -201,80 +227,8 @@ pub fn decide(
     Ok(json!({
         "current": version.to_string(),
         "change": change,
-        "next": version.advance(change).to_string(),
+        "next": version.advance(change)?.to_string(),
         "removed": removed,
         "added": added,
     }))
-}
-
-/// One token of a coordinate: a number sorts before any text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token {
-    /// Decimal digits without leading zeros (`"0"` for zero), so numbers of any
-    /// size compare without overflow.
-    Number(String),
-    Text(String),
-}
-
-impl Ord for Token {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match (self, other) {
-            (Token::Number(left), Token::Number(right)) => {
-                left.len().cmp(&right.len()).then_with(|| left.cmp(right))
-            }
-            (Token::Number(_), Token::Text(_)) => Ordering::Less,
-            (Token::Text(_), Token::Number(_)) => Ordering::Greater,
-            (Token::Text(left), Token::Text(right)) => left.cmp(right),
-        }
-    }
-}
-
-impl PartialOrd for Token {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// The digits of a token read as an integer the way the rule's first port
-/// read it: surrounding whitespace and a leading `+` allowed, underscores only
-/// between digits.
-fn integer(token: &str) -> Option<String> {
-    let token = token.trim();
-    let token = token.strip_prefix('+').unwrap_or(token);
-    let bytes = token.as_bytes();
-    let well_formed = !bytes.is_empty()
-        && bytes.first().is_some_and(u8::is_ascii_digit)
-        && bytes.last().is_some_and(u8::is_ascii_digit)
-        && bytes
-            .iter()
-            .all(|byte| byte.is_ascii_digit() || *byte == b'_')
-        && !token.contains("__");
-    if !well_formed {
-        return None;
-    }
-    let digits: String = token.chars().filter(char::is_ascii_digit).collect();
-    let significant = digits.trim_start_matches('0');
-    Some(if significant.is_empty() {
-        "0".to_string()
-    } else {
-        significant.to_string()
-    })
-}
-
-/// Split on `.` and `-`; numeric tokens as numbers, sorting before strings.
-/// Ordering works on coordinates that are not triples, because a version that
-/// can never be advanced can still be compared.
-pub fn version_tuple(value: &str) -> Vec<Token> {
-    value
-        .split(['.', '-'])
-        .map(|token| match integer(token) {
-            Some(number) => Token::Number(number),
-            None => Token::Text(token.to_string()),
-        })
-        .collect()
-}
-
-/// True when `candidate` is strictly newer than `installed`.
-pub fn version_newer(installed: &str, candidate: &str) -> bool {
-    version_tuple(installed) < version_tuple(candidate)
 }

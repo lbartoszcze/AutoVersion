@@ -173,6 +173,20 @@ the numbers themselves and is stated in the closing section.
       "published": ["chat"],
       "candidate": [],
       "expect": {"refusal": "empty-surface"}
+    },
+    {
+      "name": "a slot at the largest number it holds cannot advance, and is never wrapped to zero",
+      "current": "1.0.340282366920938463463374607431768211455",
+      "published": ["chat"],
+      "candidate": ["chat"],
+      "expect": {"refusal": "slot-exhausted"}
+    },
+    {
+      "name": "a slot wider than an unsigned 128-bit number is refused at parse, whatever the implementation's integers hold",
+      "current": "1.0.340282366920938463463374607431768211456",
+      "published": ["chat"],
+      "candidate": ["chat"],
+      "expect": {"refusal": "not-numeric"}
     }
   ],
   "order": [
