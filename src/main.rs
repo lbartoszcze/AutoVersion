@@ -126,11 +126,28 @@ fn emit(payload: &[(&str, Value)], as_json: bool) {
     }
 }
 
-fn answer_fields(answer: &Value) -> Vec<(&'static str, Value)> {
+/// The five fields every decision holds; one that is missing is a decision
+/// this binary cannot report, and is refused naming it.
+fn answer_fields(answer: &Value) -> Result<Vec<(&'static str, Value)>, Failure> {
     ["current", "change", "next", "removed", "added"]
         .into_iter()
-        .map(|key| (key, answer.get(key).cloned().unwrap_or(Value::Null)))
+        .map(|key| match answer.get(key) {
+            Some(value) => Ok((key, value.clone())),
+            None => Err(Failure::Refused(format!(
+                "the version decision holds no `{key}`; it held {answer}"
+            ))),
+        })
         .collect()
+}
+
+/// The version a decision requires, which every decision states as text.
+fn next_version(answer: &Value) -> Result<&str, Failure> {
+    match answer.get("next").and_then(Value::as_str) {
+        Some(next) => Ok(next),
+        None => Err(Failure::Refused(format!(
+            "the version decision states no next version as text; it held {answer}"
+        ))),
+    }
 }
 
 fn run(arguments: &[String]) -> Result<(), Failure> {
@@ -161,7 +178,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                 flags.switch("--breaking"),
             )?;
             emit(
-                &answer_fields(&answer),
+                &answer_fields(&answer)?,
                 global_json || flags.switch("--json"),
             );
             Ok(())
@@ -188,15 +205,12 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                 &candidate,
                 flags.switch("--breaking"),
             )?;
-            let mut fields = answer_fields(&answer);
+            let mut fields = answer_fields(&answer)?;
             if bindings {
                 fields.push(("surface", json!("module bindings")));
             }
             emit(&fields, global_json || flags.switch("--json"));
-            let next = answer
-                .get("next")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
+            let next = next_version(&answer)?;
             match flags.values.get("--expect") {
                 Some(expected) if expected != next => Err(Failure::Refused(format!(
                     "the surface change requires {next}, but the product declares {expected}"
