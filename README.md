@@ -79,7 +79,7 @@ Each language keeps a small implementation. The compiler cannot keep them honest
 across languages, so [`docs/FIXTURES.md`](docs/FIXTURES.md) does:
 
 ```sh
-cargo test --test conformance
+kompilator test --manifest-path Cargo.toml --test conformance
 ```
 
 An implementation is a port when it reproduces every case. Adding a case is a
@@ -115,8 +115,9 @@ and the refusals that are correct outcomes rather than failures.
 **Read it from `main`.** It postdates the `v0.1.0` tag, so a checkout of the pinned
 install does not contain it — three adopting repositories reported that independently.
 `v0.1.0` is the Python implementation, installed with pip; `main` is the Rust one,
-installed with `cargo install --locked --git https://github.com/lbartoszcze/AutoVersion
---tag <tag> autoversion` once a tag carries it. The commands, flags, answers and exit
+built from a checkout of a tag that carries it with Stado's `kompilator build
+--manifest-path Cargo.toml --release --bin autoversion --out .build/autoversion`
+(no Cargo runs). The commands, flags, answers and exit
 codes are the same.
 
 ## A note on its own version

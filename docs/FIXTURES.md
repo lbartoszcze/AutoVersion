@@ -247,7 +247,7 @@ cases at all, because no command it exposes compares two versions.
 
 The Python port this repository held until it was rewritten in Rust reproduced **all
 twenty-five cases**, ordering included; the Rust port runs them with
-`cargo test --test conformance`.
+`kompilator test --manifest-path Cargo.toml --test conformance`.
 
 ### The suite was then attacked, and one section did not survive
 
