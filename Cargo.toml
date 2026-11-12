@@ -15,7 +15,7 @@ name = "autoversion"
 path = "src/main.rs"
 required-features = ["surfaces"]
 
-# Reproduces every case in docs/FIXTURES.md: `cargo test --test conformance`.
+# Reproduces every case in docs/FIXTURES.md: `kompilator test --manifest-path Cargo.toml --test conformance`.
 [[test]]
 name = "conformance"
 path = "tests/conformance/main.rs"
