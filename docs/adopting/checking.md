@@ -16,10 +16,8 @@ autoversion decide --current "$released" \
 ```
 
 That installs `v0.1.0`, the Python implementation. The rule on `main` is a Rust binary with
-the same commands, flags, answers and exit codes; once a tag carries it, the venv lines become
-`cargo install --locked --root "$RUNNER_TEMP/rule" --git
-https://github.com/lbartoszcze/AutoVersion --tag <tag> autoversion`, and the `PATH` lines stay
-as they are.
+the same commands, flags, answers and exit codes; no tag carries it yet, so the step above is
+the install until one does.
 
 Default **both** runner variables, not just the temp directory. Under `set -eu` the line
 `>> "$GITHUB_PATH"` dies with `GITHUB_PATH: unbound variable` when you run the step body
