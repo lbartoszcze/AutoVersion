@@ -1,0 +1,45 @@
+schemaVersion: 1
+appId: autoversion
+productId: autoversion
+owner: AutoVersion maintainers
+repositories:
+  - repository: AutoVersion
+    mappings:
+      - paths:
+          - src/**
+          - released-surface.json
+          - docs/SPEC.md
+          - Cargo.toml
+          - Cargo.lock
+          - .probierz/autoversion/journeys/**
+        journeys: [next-version]
+surfaces:
+  tui:
+    spec: journeys/
+    journeys: [next-version]
+    conditions:
+      TUI_CMD: "{workspace}/AutoVersion/target/release/autoversion"
+      WISENT_WORKSPACE: "{workspace}"
+journeys:
+  next-version:
+    owner: AutoVersion maintainers
+    timeoutMs: 60000
+    description: With released-surface.json as the published surface, a matching surface is internal, one more name additive, a missing name breaking and named, a declared breakage escalates but never lowers, and the next version moves the slot docs/SPEC.md gives below and above 1.0.0; a version that is not three slots is refused.
+    value: Every repository's next version follows from what its public surface lost or gained, the same way everywhere.
+artifacts:
+  retain:
+    pullRequestDays: 14
+    nightlyDays: 30
+    adhocDays: 7
+  redact: [TOKEN, SECRET, PASSWORD, KEY, COOKIE, AUTH]
+  pii: unlikely
+pullRequestPolicy:
+  minimumEvidence: E2
+  requiredTargets: [tui]
+  requiredJourneys: [next-version]
+releasePolicy:
+  minimumEvidence: E2
+  requiredTargets: [tui]
+  requiredJourneys: [next-version]
+  requireProtectedArtifacts: false
+  requireSecretScan: true
