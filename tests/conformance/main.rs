@@ -124,7 +124,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let Some(block) = body.split("```").nth(1) else {
+    let Some(block) = body.split_once("```").and_then(|(_, rest)| rest.split("```").next()) else {
         eprintln!("{path}: no fenced block");
         return ExitCode::FAILURE;
     };
