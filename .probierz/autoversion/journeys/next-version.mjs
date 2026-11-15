@@ -20,7 +20,7 @@ function required(name) {
   const value = process.env[name]?.trim();
   if (!value) {
     process.stderr.write(`${name} is not set: run this journey through \`probierz run tui --app autoversion\`\n`);
-    process.exit(2);
+    process.exit(2 /* https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html */);
   }
   return value;
 }
@@ -75,6 +75,6 @@ expect(invalid.status !== 0, 'a current version that is not three slots was not 
 
 if (broken.length > 0) {
   process.stderr.write(`${broken.join('\n')}\n`);
-  process.exit(1);
+  process.exit(1 /* https://pubs.opengroup.org/onlinepubs/9799919799/functions/exit.html */);
 }
 process.stdout.write('autoversion classified every change by the surface and moved the slot the rule says\n');
