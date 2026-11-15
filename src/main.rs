@@ -258,7 +258,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
 }
 
 fn main() -> ExitCode {
-    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    let arguments: Vec<String> = std::env::args().skip(1 /* https://doc.rust-lang.org/std/env/fn.args.html */).collect();
     match run(&arguments) {
         Ok(()) => ExitCode::SUCCESS,
         Err(Failure::Refused(reason)) => {
