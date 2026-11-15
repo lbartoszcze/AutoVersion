@@ -267,7 +267,7 @@ fn main() -> ExitCode {
         }
         Err(Failure::Usage(reason)) => {
             eprintln!("autoversion: error: {reason}\n{USAGE}");
-            ExitCode::from(2)
+            ExitCode::from(2) /* https://docs.rs/clap/latest/clap/error/struct.Error.html#method.exit */
         }
     }
 }
