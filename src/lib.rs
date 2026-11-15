@@ -83,8 +83,6 @@ impl fmt::Display for Version {
 
 // https://semver.org/#spec-item-4 : major version zero is for initial development.
 const UNSTABLE_MAJOR: u128 = 0;
-// https://semver.org/#spec-item-6 : a released change increments one slot by one.
-const STEP: u128 = 1;
 // https://semver.org/#spec-item-7 : the slots below an incremented one are reset to 0.
 const RESET: u128 = 0;
 
@@ -139,8 +137,9 @@ impl Version {
             minor,
             patch,
         } = *self;
+        // https://semver.org/#spec-item-6 : a released change increments one slot by one.
         let step = |slot: u128, name: &str| {
-            slot.checked_add(STEP).ok_or_else(|| {
+            slot.checked_add(1).ok_or_else(|| {
                 RuleError::SlotExhausted(format!(
                     "{self} cannot advance its {name} slot: {slot} is the largest number a slot \
                      holds; name the next version explicitly"
