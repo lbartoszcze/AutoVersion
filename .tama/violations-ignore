@@ -3,9 +3,9 @@
 #
 # The repository root. Every file here is read by a tool at exactly this
 # path: pip and setuptools read pyproject.toml, which names README.md and the
-# licence beside it; Stado reads .wisent-release.json; AutoVersion's own
-# check reads released-surface.json, the baseline its rule compares against
-# (README); and git reads .gitignore. The prose
+# licence beside it; Stado reads .wisent-release.json; the probierz journey
+# .probierz/autoversion/journeys/next-version.mjs reads released-surface.json
+# at the checkout's root as the published surface; and git reads .gitignore. The prose
 # moved to docs/ and the conformance runner to scripts/, so what is left is
 # only what cannot move.
 .

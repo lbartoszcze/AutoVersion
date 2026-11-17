@@ -100,14 +100,14 @@ fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
 
 /// The answer as sorted, indented JSON, or one `key: value` line per field
 /// that holds something.
-fn emit(payload: &[(&str, Value)], as_json: bool) {
+fn emit(payload: Vec<(&str, Value)>, as_json: bool) {
     if as_json {
-        let sorted: BTreeMap<String, Value> = payload
-            .iter()
-            .map(|(key, value)| (key.to_string(), value.clone()))
-            .collect();
         // serde_json's Map keeps its keys sorted, and `{:#}` indents it.
-        println!("{:#}", Value::Object(sorted.into_iter().collect()));
+        let object: serde_json::Map<String, Value> = payload
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect();
+        println!("{:#}", Value::Object(object));
         return;
     }
     for (key, value) in payload {
@@ -117,7 +117,7 @@ fn emit(payload: &[(&str, Value)], as_json: bool) {
                 .filter_map(Value::as_str)
                 .collect::<Vec<_>>()
                 .join(", "),
-            Value::String(text) => text.clone(),
+            Value::String(text) => text,
             other => other.to_string(),
         };
         if !rendered.is_empty() {
@@ -178,7 +178,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                 flags.switch("--breaking"),
             )?;
             emit(
-                &answer_fields(&answer)?,
+                answer_fields(&answer)?,
                 global_json || flags.switch("--json"),
             );
             Ok(())
@@ -209,7 +209,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             if bindings {
                 fields.push(("surface", json!("module bindings")));
             }
-            emit(&fields, global_json || flags.switch("--json"));
+            emit(fields, global_json || flags.switch("--json"));
             let next = next_version(&answer)?;
             match flags.values.get("--expect") {
                 Some(expected) if expected != next => Err(Failure::Refused(format!(
@@ -223,13 +223,13 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             let bindings = flags.switch("--module-bindings");
             let names =
                 surfaces::python_surface(Path::new(flags.required("--python-init")?), bindings)?;
-            // Sorted by key, as every JSON answer here is.
-            let mut document = BTreeMap::new();
+            // serde_json's Map keeps its keys sorted, as every JSON answer here is.
+            let mut document = serde_json::Map::new();
             document.insert("surface".to_string(), json!(names));
             if bindings {
                 document.insert("source".to_string(), json!("module bindings"));
             }
-            println!("{:#}", Value::Object(document.into_iter().collect()));
+            println!("{:#}", Value::Object(document));
             Ok(())
         }
         "order" => {
@@ -242,7 +242,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                 "False"
             };
             emit(
-                &[
+                vec![
                     ("older", json!(older)),
                     ("newer", json!(newer)),
                     ("is_newer", json!(is_newer)),
