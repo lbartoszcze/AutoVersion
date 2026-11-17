@@ -23,7 +23,6 @@ surfaces:
 journeys:
   next-version:
     owner: AutoVersion maintainers
-    timeoutMs: 60000
     description: With released-surface.json as the published surface, a matching surface is internal, one more name additive, a missing name breaking and named, a declared breakage escalates but never lowers, and the next version moves the slot docs/SPEC.md gives below and above 1.0.0; a version that is not three slots is refused.
     value: Every repository's next version follows from what its public surface lost or gained, the same way everywhere.
 artifacts:

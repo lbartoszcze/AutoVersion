@@ -1,30 +1,6 @@
 {
   "schema_version": 1,
   "product": "autoversion",
-  "releases": true,
-  "version_source": {
-    "kind": "json",
-    "path": "released-surface.json",
-    "pointer": "/version"
-  },
-  "platforms": {
-    "source": {
-      "runner_platform": "linux-amd64",
-      "quality": [],
-      "build": {
-        "argv": ["stado", "product", "source-bundle"]
-      },
-      "stage": {
-        "release/source-bundle.tar": "release/source-bundle.tar"
-      }
-    }
-  },
-  "promotion": {
-    "channels": [
-      "stable"
-    ],
-    "reconcile": false
-  },
-  "inputs": {},
-  "deliveries": []
+  "releases": false,
+  "reason": "No release artifact of AutoVersion is consumed: Stado builds it from a pinned git revision (stado-rs/Cargo.toml, autoversion rev), and an adopting repository builds the binary from a checkout of a tag (README, Adopting it). Its version is the git tag (Cargo.toml carries none), and released-surface.json /version is the baseline its own rule compares against, frozen at the published v0.1.0; read as a release version it named every release 0.1.0, and a raised release version written into it would break that baseline."
 }

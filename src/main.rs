@@ -98,17 +98,27 @@ fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
         .ok_or_else(|| Failure::Refused(format!("{path}: \"surface\" is not a list of names")))
 }
 
+/// `document` as indented JSON. A document that cannot be written is
+/// refused naming why, never printed as an empty line that reads as an
+/// answer.
+fn json_text(document: &Value) -> Result<String, Failure> {
+    serde_json::to_string_pretty(document).map_err(|error| {
+        Failure::Refused(format!(
+            "the answer could not be written as JSON: {error}; it held {document}"
+        ))
+    })
+}
+
 /// The answer as sorted, indented JSON, or one `key: value` line per field
 /// that holds something.
-fn emit(payload: &[(&str, Value)], as_json: bool) {
+fn emit(payload: &[(&str, Value)], as_json: bool) -> Result<(), Failure> {
     if as_json {
-        let sorted: BTreeMap<&str, &Value> =
-            payload.iter().map(|(key, value)| (*key, value)).collect();
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&sorted).unwrap_or_default()
-        );
-        return;
+        let sorted: BTreeMap<String, Value> = payload
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.clone()))
+            .collect();
+        println!("{}", json_text(&Value::Object(sorted.into_iter().collect()))?);
+        return Ok(());
     }
     for (key, value) in payload {
         let rendered = match value {
@@ -124,6 +134,7 @@ fn emit(payload: &[(&str, Value)], as_json: bool) {
             println!("{key}: {rendered}");
         }
     }
+    Ok(())
 }
 
 /// The five fields every decision holds; one that is missing is a decision
@@ -180,8 +191,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             emit(
                 &answer_fields(&answer)?,
                 global_json || flags.switch("--json"),
-            );
-            Ok(())
+            )
         }
         "check" => {
             let flags = Flags::parse(
@@ -209,7 +219,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             if bindings {
                 fields.push(("surface", json!("module bindings")));
             }
-            emit(&fields, global_json || flags.switch("--json"));
+            emit(&fields, global_json || flags.switch("--json"))?;
             let next = next_version(&answer)?;
             match flags.values.get("--expect") {
                 Some(expected) if expected != next => Err(Failure::Refused(format!(
@@ -223,15 +233,13 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             let bindings = flags.switch("--module-bindings");
             let names =
                 surfaces::python_surface(Path::new(flags.required("--python-init")?), bindings)?;
+            // Sorted by key, as every JSON answer here is.
             let mut document = BTreeMap::new();
-            document.insert("surface", json!(names));
+            document.insert("surface".to_string(), json!(names));
             if bindings {
-                document.insert("source", json!("module bindings"));
+                document.insert("source".to_string(), json!("module bindings"));
             }
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&document).unwrap_or_default()
-            );
+            println!("{}", json_text(&Value::Object(document.into_iter().collect()))?);
             Ok(())
         }
         "order" => {
@@ -250,8 +258,7 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                     ("is_newer", json!(is_newer)),
                 ],
                 global_json || flags.switch("--json"),
-            );
-            Ok(())
+            )
         }
         other => Err(Failure::Usage(format!("invalid choice: {other}"))),
     }

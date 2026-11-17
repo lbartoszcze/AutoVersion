@@ -3,10 +3,11 @@
 A product supplies two things only it can know: its public surface, and the version it
 declares. Everything else is the rule's, and the rule is not copied.
 
-Three files land in the product. None of them contains the rule.
+Four files land in the product. None of them contains the rule.
 
 ```
 scripts/surface.py                    prints {"surface": ["name", ...]}
+scripts/baseline.py                   recovers the published surface from the best reachable artifact
 released-surface.json                 the surface of the version actually published
 .github/workflows/version-check.yml   installs the rule, compares, refuses
 ```
