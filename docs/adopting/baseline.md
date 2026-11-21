@@ -149,7 +149,7 @@ present, and fail if the control comes back empty. Four instances, all real:
   empty, or when `license` *and* `license-file` are both empty
   (`rust-lang/crates.io`, `src/controllers/krate/publish.rs`). So "this crate is not
   publishable as it stands" is decidable by reading `Cargo.toml`, with no request to
-  anything — while `cargo publish --dry-run` merely *warns* and exits zero, which is why
+  anything — while no local packaging step runs the registry's server-side check, which is why
   the fact is invisible from a laptop and why a locally produced `<name>-<version>.crate`
   proves no tier at all.
 

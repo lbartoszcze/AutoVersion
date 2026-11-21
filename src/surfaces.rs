@@ -15,13 +15,45 @@ use std::path::Path;
 
 use tree_sitter::{Node, Parser, Tree};
 
-/// The surface could not be read from where the caller pointed.
+/// Which reading of the surface was refused: the stable name a caller tells
+/// the refusals apart by, as [`crate::RuleError::refusal`] does for the rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SurfaceRefusal {
+    /// The file could not be read.
+    Unreadable,
+    /// The file is not parseable Python.
+    Unparseable,
+    /// `__all__` is mutated, deleted or aliased.
+    AllReferenced,
+    /// `__all__` is assigned conditionally or augmented.
+    AllNotDirect,
+    /// `__all__` is not a literal list, tuple or set.
+    AllNotLiteral,
+    /// An entry of `__all__` is not a plain string literal.
+    EntryNotString,
+    /// The module declares no `__all__`.
+    AllMissing,
+    /// The module binds no public name.
+    NoPublicNames,
+}
+
+/// The surface could not be read from where the caller pointed: which
+/// reading was refused, and the sentence that says why.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SurfaceError(pub String);
+pub struct SurfaceError {
+    pub refusal: SurfaceRefusal,
+    pub message: String,
+}
+
+impl SurfaceError {
+    fn new(refusal: SurfaceRefusal, message: String) -> Self {
+        Self { refusal, message }
+    }
+}
 
 impl fmt::Display for SurfaceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.message)
     }
 }
 
@@ -29,17 +61,22 @@ impl std::error::Error for SurfaceError {}
 
 fn parse(path: &Path) -> Result<(String, Tree), SurfaceError> {
     let source = std::fs::read_to_string(path)
-        .map_err(|error| SurfaceError(format!("{}: {error}", path.display())))?;
+        .map_err(|error| SurfaceError::new(SurfaceRefusal::Unreadable, format!("{}: {error}", path.display())))?;
+    // The grammar is compiled in, and Cargo.lock pins it to the tree-sitter
+    // runtime whose ABI range holds it, so loading it fails for no input; a
+    // parser with a language, no timeout and no cancellation always returns a
+    // tree. Neither is a refusal a caller could act on, and every surface this
+    // binary reads passes through both.
     let mut parser = Parser::new();
     parser
         .set_language(&tree_sitter_python::LANGUAGE.into())
-        .map_err(|error| SurfaceError(format!("the Python grammar did not load: {error}")))?;
+        .expect("the compiled-in Python grammar matches the pinned tree-sitter ABI");
     let tree = parser
         .parse(&source, None)
-        .ok_or_else(|| SurfaceError(format!("{}: the parser returned no tree", path.display())))?;
+        .expect("a parser with a language and no cancellation returns a tree");
     if tree.root_node().has_error() {
-        return Err(SurfaceError(format!(
-            "{}: not parseable Python",
+        return Err(SurfaceError::new(SurfaceRefusal::Unparseable, format!(
+            "{}: not parseable Python, so its names cannot be read; correct the syntax error `python -m py_compile` reports for it",
             path.display()
         )));
     }
@@ -137,7 +174,7 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
                 parent.kind() == "assignment" && parent.child_by_field_name("left") == Some(node)
             });
             if !is_assignment_target {
-                return Err(SurfaceError(format!(
+                return Err(SurfaceError::new(SurfaceRefusal::AllReferenced, format!(
                     "{}: __all__ is referenced outside a literal assignment; mutation, deletion or aliasing requires a product-extracted surface",
                     path.display()
                 )));
@@ -158,7 +195,7 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
             .and_then(|parent| parent.parent())
             .is_some_and(|parent| parent.kind() == "module");
         if node.kind() != "assignment" || !direct_module_assignment {
-            return Err(SurfaceError(format!(
+            return Err(SurfaceError::new(SurfaceRefusal::AllNotDirect, format!(
                 "{}: __all__ must be a direct module-level literal assignment; conditional or augmented assignments require a product-extracted surface",
                 path.display()
             )));
@@ -167,7 +204,7 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
         let Some(value) = value
             .filter(|value| matches!(value.kind(), "list" | "tuple" | "set" | "expression_list"))
         else {
-            return Err(SurfaceError(format!(
+            return Err(SurfaceError::new(SurfaceRefusal::AllNotLiteral, format!(
                 "{}: __all__ is not a literal list, tuple or set, so its contents cannot be read \
                  without executing the module",
                 path.display()
@@ -180,9 +217,10 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
                 continue;
             }
             let name = string_literal(element, &source).ok_or_else(|| {
-                SurfaceError(format!(
-                    "{}: __all__ contains an entry that is not a string literal",
-                    path.display()
+                SurfaceError::new(SurfaceRefusal::EntryNotString, format!(
+                    "{}: __all__ contains {}, which is not a string literal; write each public name as a plain string such as \"name\", with no b, f or t prefix, interpolation or escape",
+                    path.display(),
+                    text(element, &source)
                 ))
             })?;
             names.push(name);
@@ -190,7 +228,7 @@ pub fn python_all(path: &Path) -> Result<Vec<String>, SurfaceError> {
         surface = Some(names);
     }
     surface.ok_or_else(|| {
-        SurfaceError(format!(
+        SurfaceError::new(SurfaceRefusal::AllMissing, format!(
             "{}: no __all__ found. A package without one has no declared public surface, so a \
          release cannot be classified from it — declare __all__, or supply a surface the \
          product extracts itself",
@@ -258,8 +296,8 @@ pub fn python_declared(path: &Path) -> Result<Vec<String>, SurfaceError> {
         }
     }
     if names.is_empty() {
-        return Err(SurfaceError(format!(
-            "{}: no public names found, with or without __all__",
+        return Err(SurfaceError::new(SurfaceRefusal::NoPublicNames, format!(
+            "{}: no public names found, with or without __all__: every module-level definition, assignment and re-export begins with an underscore or is a plain import; declare __all__, or point at the module that holds the package's public names",
             path.display()
         )));
     }
@@ -274,9 +312,10 @@ pub fn python_surface(path: &Path, module_bindings: bool) -> Result<Vec<String>,
     if module_bindings {
         return python_declared(path);
     }
-    python_all(path).map_err(|error| {
-        SurfaceError(format!(
+    python_all(path).map_err(|error| SurfaceError {
+        message: format!(
             "{error}; name the module bindings as the surface with --module-bindings if that is what the package promises"
-        ))
+        ),
+        ..error
     })
 }

@@ -1,0 +1,135 @@
+{
+  "generated_by": "stado product name sync",
+  "decided_in": "the product's record in stado/catalog/products.yml; change a name with `stado product name set`",
+  "own": {
+    "id": "stado",
+    "name": "Stado",
+    "program": "stado",
+    "programs": [
+      "stado"
+    ],
+    "state_directory": ".stado",
+    "environment_prefix": "STADO_",
+    "site": "https://stado.wisent.com",
+    "address": "stado.wisent.com",
+    "unit_label": "com.wisent.stado",
+    "owner_repository": "wisent-ai/stado",
+    "former_ids": []
+  },
+  "authority": {
+    "id": "stado",
+    "name": "Stado",
+    "program": "stado",
+    "programs": [
+      "stado"
+    ],
+    "state_directory": ".stado",
+    "environment_prefix": "STADO_",
+    "site": "https://stado.wisent.com",
+    "address": "stado.wisent.com",
+    "unit_label": "com.wisent.stado",
+    "owner_repository": "wisent-ai/stado",
+    "former_ids": []
+  },
+  "family": {
+    "id": "wisent",
+    "name": "Wisent",
+    "site": "https://wisent.com",
+    "also": [
+      "https://wisent.ai"
+    ]
+  },
+  "products": {
+    "skarbiec": {
+      "id": "skarbiec",
+      "name": "Skarbiec",
+      "program": "skarbiec",
+      "programs": [
+        "skarbiec"
+      ],
+      "state_directory": ".skarbiec",
+      "environment_prefix": "SKARBIEC_",
+      "site": "https://skarbiec.wisent.com",
+      "address": "skarbiec.wisent.com",
+      "unit_label": "com.wisent.skarbiec",
+      "owner_repository": "wisent-ai/skarbiec",
+      "former_ids": []
+    },
+    "oko": {
+      "id": "oko",
+      "name": "Oko",
+      "program": "oko",
+      "programs": [
+        "oko"
+      ],
+      "state_directory": ".oko",
+      "environment_prefix": "OKO_",
+      "site": "https://oko.wisent.com",
+      "address": "oko.wisent.com",
+      "unit_label": "com.wisent.oko",
+      "owner_repository": "wisent-ai/oko",
+      "former_ids": []
+    },
+    "tama": {
+      "id": "tama",
+      "name": "Tama",
+      "program": "tama",
+      "programs": [
+        "tama"
+      ],
+      "state_directory": ".tama",
+      "environment_prefix": "TAMA_",
+      "site": "https://tama.wisent.com",
+      "address": "tama.wisent.com",
+      "unit_label": "com.wisent.tama",
+      "owner_repository": "wisent-ai/tama-desktop",
+      "former_ids": []
+    },
+    "brama": {
+      "id": "brama",
+      "name": "Brama",
+      "program": "brama",
+      "programs": [
+        "brama"
+      ],
+      "state_directory": ".brama",
+      "environment_prefix": "BRAMA_",
+      "site": "https://brama.wisent.com",
+      "address": "brama.wisent.com",
+      "unit_label": "com.wisent.brama",
+      "owner_repository": "wisent-ai/brama",
+      "former_ids": []
+    },
+    "jeden": {
+      "id": "jeden",
+      "name": "Jeden",
+      "program": "jeden",
+      "programs": [
+        "jeden"
+      ],
+      "state_directory": ".jeden",
+      "environment_prefix": "JEDEN_",
+      "site": "https://jeden.wisent.com",
+      "address": "jeden.wisent.com",
+      "unit_label": "com.wisent.jeden",
+      "owner_repository": "wisent-ai/jeden",
+      "former_ids": []
+    },
+    "weles": {
+      "id": "weles",
+      "name": "Weles",
+      "program": "weles",
+      "programs": [
+        "weles",
+        "weles-mcp"
+      ],
+      "state_directory": ".weles",
+      "environment_prefix": "WELES_",
+      "site": "https://weles.wisent.com",
+      "address": "weles.wisent.com",
+      "unit_label": "com.wisent.weles",
+      "owner_repository": "wisent-ai/weles",
+      "former_ids": []
+    }
+  }
+}

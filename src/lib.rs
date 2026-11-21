@@ -214,20 +214,43 @@ pub fn classify(
     Ok((change, removed, added))
 }
 
-/// The whole answer: what changed, and what to call it.
+/// The whole answer: what changed, and what to call it. Every field is always
+/// there, so a reader of a decision never meets one without a next version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Decision {
+    pub current: Version,
+    pub change: &'static str,
+    pub next: Version,
+    pub removed: Vec<String>,
+    pub added: Vec<String>,
+}
+
+impl Decision {
+    /// The decision as the JSON object the fixtures and the binary answer with.
+    pub fn to_json(&self) -> Value {
+        json!({
+            "current": self.current.to_string(),
+            "change": self.change,
+            "next": self.next.to_string(),
+            "removed": self.removed,
+            "added": self.added,
+        })
+    }
+}
+
 pub fn decide(
     current: &str,
     published: &[String],
     candidate: &[String],
     declared_breaking: bool,
-) -> Result<Value, RuleError> {
-    let version = Version::parse(current)?;
+) -> Result<Decision, RuleError> {
+    let current = Version::parse(current)?;
     let (change, removed, added) = classify(published, candidate, declared_breaking)?;
-    Ok(json!({
-        "current": version.to_string(),
-        "change": change,
-        "next": version.advance(change)?.to_string(),
-        "removed": removed,
-        "added": added,
-    }))
+    Ok(Decision {
+        current,
+        change,
+        next: current.advance(change)?,
+        removed,
+        added,
+    })
 }

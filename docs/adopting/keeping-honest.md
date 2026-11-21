@@ -90,7 +90,7 @@ from CI is still reading refs it cannot see. Getting this wrong in the safe dire
 costs a wasted second; getting it wrong the other way leaves a sleeping gate.
 
 A related trap when recovering a baseline from a tag: `git archive <tag> | tar -x` gives
-you the tree, but invoking the language's tooling inside it — `cargo metadata`, a build,
+you the tree, but invoking the language's tooling inside it — `kompilator lock`, a build,
 an import — reaches the network or a lockfile the tag never shipped, and the baseline
 quietly becomes a property of the runner's cache instead of the artifact. Read the
 manifest and sources statically out of the archive. It is the same discipline as never

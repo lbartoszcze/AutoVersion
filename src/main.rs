@@ -4,7 +4,11 @@
 //!
 //! Exit codes are the contract for automation: 0 when the question was
 //! answered, 1 when it was refused (the refusal says what the rule declined to
-//! invent), 2 when the invocation itself is wrong.
+//! invent), 2 when the invocation itself is wrong. Every refusal is a cause
+//! `errors` declares: its sentence on stderr as it always read, then the
+//! wisent-errors envelope as one JSON line.
+
+mod errors;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -13,29 +17,16 @@ use std::process::ExitCode;
 use serde_json::{json, Value};
 
 use autoversion::surfaces;
+use errors::commands::EXPECTED_VERSION_UNMADE;
+use errors::document::{DOCUMENT_NOT_JSON, DOCUMENT_UNREADABLE, SURFACE_KEY_MISSING, SURFACE_NOT_NAMES};
+use errors::product::{COMMAND_REFUSED, FLAG_INCOMPLETE, FLAG_UNRECOGNIZED};
+use errors::{refuse, Declared, AUTOVERSION, CHECK, DOCUMENT};
 
 const USAGE: &str = "usage:
   autoversion [--json] decide --current VERSION --published-surface FILE --candidate-surface FILE [--breaking]
   autoversion [--json] check --current VERSION --published-init FILE --candidate-init FILE [--expect VERSION] [--breaking] [--module-bindings]
   autoversion surface --python-init FILE [--module-bindings]
   autoversion [--json] order --older VERSION --newer VERSION";
-
-enum Failure {
-    Usage(String),
-    Refused(String),
-}
-
-impl From<autoversion::RuleError> for Failure {
-    fn from(error: autoversion::RuleError) -> Self {
-        Failure::Refused(error.to_string())
-    }
-}
-
-impl From<surfaces::SurfaceError> for Failure {
-    fn from(error: surfaces::SurfaceError) -> Self {
-        Failure::Refused(error.to_string())
-    }
-}
 
 /// The flags after a subcommand: values by name, switches present or not.
 struct Flags {
@@ -44,7 +35,7 @@ struct Flags {
 }
 
 impl Flags {
-    fn parse(words: &[String], valued: &[&str], switches: &[&str]) -> Result<Self, Failure> {
+    fn parse(words: &[String], valued: &[&str], switches: &[&str]) -> Result<Self, Declared> {
         let mut flags = Flags {
             values: BTreeMap::new(),
             switches: Vec::new(),
@@ -52,24 +43,23 @@ impl Flags {
         let mut words = words.iter();
         while let Some(word) = words.next() {
             if valued.contains(&word.as_str()) {
-                let value = words
-                    .next()
-                    .ok_or_else(|| Failure::Usage(format!("{word} needs a value")))?;
+                let value = words.next().ok_or_else(|| {
+                    refuse(&AUTOVERSION, &FLAG_INCOMPLETE, format!("{word} needs a value"))
+                })?;
                 flags.values.insert(word.clone(), value.clone());
             } else if switches.contains(&word.as_str()) {
                 flags.switches.push(word.clone());
             } else {
-                return Err(Failure::Usage(format!("unrecognized argument: {word}")));
+                return Err(refuse(&AUTOVERSION, &FLAG_UNRECOGNIZED, format!("unrecognized argument: {word}")));
             }
         }
         Ok(flags)
     }
 
-    fn required(&self, flag: &str) -> Result<&str, Failure> {
-        self.values
-            .get(flag)
-            .map(String::as_str)
-            .ok_or_else(|| Failure::Usage(format!("the following argument is required: {flag}")))
+    fn required(&self, flag: &str) -> Result<&str, Declared> {
+        self.values.get(flag).map(String::as_str).ok_or_else(|| {
+            refuse(&AUTOVERSION, &FLAG_INCOMPLETE, format!("the following argument is required: {flag}"))
+        })
     }
 
     fn switch(&self, flag: &str) -> bool {
@@ -77,15 +67,17 @@ impl Flags {
     }
 }
 
-fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
+fn read_surface(path: &str) -> Result<Vec<String>, Declared> {
     let text = std::fs::read_to_string(path)
-        .map_err(|error| Failure::Refused(format!("{path}: {error}")))?;
+        .map_err(|error| refuse(&DOCUMENT, &DOCUMENT_UNREADABLE, format!("{path}: {error}")))?;
     let document: Value = serde_json::from_str(&text)
-        .map_err(|error| Failure::Refused(format!("{path}: not JSON: {error}")))?;
+        .map_err(|error| refuse(&DOCUMENT, &DOCUMENT_NOT_JSON, format!("{path}: not JSON: {error}")))?;
     let names = document.get("surface").ok_or_else(|| {
-        Failure::Refused(format!(
-            "{path}: no \"surface\" key. A surface document is {{\"surface\": [\"name\", ...]}}"
-        ))
+        refuse(
+            &DOCUMENT,
+            &SURFACE_KEY_MISSING,
+            format!("{path}: no \"surface\" key. A surface document is {{\"surface\": [\"name\", ...]}}"),
+        )
     })?;
     names
         .as_array()
@@ -95,7 +87,7 @@ fn read_surface(path: &str) -> Result<Vec<String>, Failure> {
                 .map(|name| name.as_str().map(str::to_string))
                 .collect()
         })
-        .ok_or_else(|| Failure::Refused(format!("{path}: \"surface\" is not a list of names")))
+        .ok_or_else(|| refuse(&DOCUMENT, &SURFACE_NOT_NAMES, format!("{path}: \"surface\" is not a list of names")))
 }
 
 /// The answer as sorted, indented JSON, or one `key: value` line per field
@@ -126,43 +118,32 @@ fn emit(payload: Vec<(&str, Value)>, as_json: bool) {
     }
 }
 
-/// The five fields every decision holds; one that is missing is a decision
-/// this binary cannot report, and is refused naming it.
-fn answer_fields(answer: &Value) -> Result<Vec<(&'static str, Value)>, Failure> {
-    ["current", "change", "next", "removed", "added"]
-        .into_iter()
-        .map(|key| match answer.get(key) {
-            Some(value) => Ok((key, value.clone())),
-            None => Err(Failure::Refused(format!(
-                "the version decision holds no `{key}`; it held {answer}"
-            ))),
-        })
-        .collect()
+/// The five fields of a decision, in the order a person reads them.
+fn decision_fields(decision: &autoversion::Decision) -> Vec<(&'static str, Value)> {
+    vec![
+        ("current", json!(decision.current.to_string())),
+        ("change", json!(decision.change)),
+        ("next", json!(decision.next.to_string())),
+        ("removed", json!(decision.removed)),
+        ("added", json!(decision.added)),
+    ]
 }
 
-/// The version a decision requires, which every decision states as text.
-fn next_version(answer: &Value) -> Result<&str, Failure> {
-    match answer.get("next").and_then(Value::as_str) {
-        Some(next) => Ok(next),
-        None => Err(Failure::Refused(format!(
-            "the version decision states no next version as text; it held {answer}"
-        ))),
-    }
-}
-
-fn run(arguments: &[String]) -> Result<(), Failure> {
+fn run(arguments: &[String]) -> Result<(), Declared> {
     let (global_json, arguments) = match arguments.split_first() {
         Some((first, rest)) if first == "--json" => (true, rest),
         _ => (false, arguments),
     };
-    let (command, rest) = arguments
-        .split_first()
-        .ok_or_else(|| Failure::Usage("the following argument is required: command".to_string()))?;
+    let (command, rest) = arguments.split_first().ok_or_else(|| {
+        refuse(&AUTOVERSION, &COMMAND_REFUSED, "the following argument is required: command")
+    })?;
+    // --help is answered at every level: after a command as well as alone.
+    let asks_help = |word: &String| matches!(word.as_str(), "--help" | "-h");
+    if command == "help" || asks_help(command) || rest.iter().any(asks_help) {
+        println!("{USAGE}");
+        return Ok(());
+    }
     match command.as_str() {
-        "--help" | "-h" | "help" => {
-            println!("{USAGE}");
-            Ok(())
-        }
         "decide" => {
             let flags = Flags::parse(
                 rest,
@@ -171,14 +152,14 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             )?;
             let published = read_surface(flags.required("--published-surface")?)?;
             let candidate = read_surface(flags.required("--candidate-surface")?)?;
-            let answer = autoversion::decide(
+            let decision = autoversion::decide(
                 flags.required("--current")?,
                 &published,
                 &candidate,
                 flags.switch("--breaking"),
             )?;
             emit(
-                answer_fields(&answer)?,
+                decision_fields(&decision),
                 global_json || flags.switch("--json"),
             );
             Ok(())
@@ -199,22 +180,24 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
                 surfaces::python_surface(Path::new(flags.required("--published-init")?), bindings)?;
             let candidate =
                 surfaces::python_surface(Path::new(flags.required("--candidate-init")?), bindings)?;
-            let answer = autoversion::decide(
+            let decision = autoversion::decide(
                 flags.required("--current")?,
                 &published,
                 &candidate,
                 flags.switch("--breaking"),
             )?;
-            let mut fields = answer_fields(&answer)?;
+            let mut fields = decision_fields(&decision);
             if bindings {
                 fields.push(("surface", json!("module bindings")));
             }
             emit(fields, global_json || flags.switch("--json"));
-            let next = next_version(&answer)?;
+            let next = decision.next.to_string();
             match flags.values.get("--expect") {
-                Some(expected) if expected != next => Err(Failure::Refused(format!(
-                    "the surface change requires {next}, but the product declares {expected}"
-                ))),
+                Some(expected) if *expected != next => Err(refuse(
+                    &CHECK,
+                    &EXPECTED_VERSION_UNMADE,
+                    format!("the surface change requires {next}, but the product declares {expected}"),
+                )),
                 _ => Ok(()),
             }
         }
@@ -251,21 +234,31 @@ fn run(arguments: &[String]) -> Result<(), Failure> {
             );
             Ok(())
         }
-        other => Err(Failure::Usage(format!("invalid choice: {other}"))),
+        other => Err(refuse(&AUTOVERSION, &COMMAND_REFUSED, format!("invalid choice: {other}"))),
     }
 }
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1 /* https://doc.rust-lang.org/std/env/fn.args.html */).collect();
-    match run(&arguments) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(Failure::Refused(reason)) => {
-            eprintln!("refused: {reason}");
-            ExitCode::FAILURE
-        }
-        Err(Failure::Usage(reason)) => {
-            eprintln!("autoversion: error: {reason}\n{USAGE}");
-            ExitCode::from(2) /* https://docs.rs/clap/latest/clap/error/struct.Error.html#method.exit */
-        }
+    let refusal = match run(&arguments) {
+        Ok(()) => return ExitCode::SUCCESS,
+        Err(refusal) => refusal,
+    };
+    if refusal.usage() {
+        eprintln!("autoversion: error: {refusal}\n{USAGE}");
+    } else {
+        eprintln!("refused: {refusal}");
+    }
+    eprintln!("{}", refusal.failure().to_json());
+    status(refusal.exit_code())
+}
+
+/// The process status a refusal's exit code is: 1 or 2, each a byte.
+fn status(code: i32) -> ExitCode {
+    match u8::try_from(code) {
+        Ok(code) => ExitCode::from(code),
+        // fallback: no declared status leaves a byte (they are 1 and 2); were
+        // one to, the command still ends as a failure.
+        Err(_) => ExitCode::FAILURE,
     }
 }

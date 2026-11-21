@@ -33,7 +33,7 @@ These fail the test, and refusing is the correct outcome:
 | consumer holds only a service URL and a bearer | the unit of consumption is a running deployment |
 | no packaging metadata at all | there is no artifact to carry a version |
 | several independent versions and no canonical one | `--current` is undefined |
-| built and installed only from a checkout — `cargo install --path .`, `pip install -e .` | the artifact is selected by path to a working tree, never by version |
+| built and installed only from a checkout — `stado product kompilator stage --bin NAME` from a working tree, `pip install -e .` | the artifact is selected by path to a working tree, never by version |
 | the manifest names a distribution coordinate somebody else owns — a fork or an imported mirror | the version is real but not ours; our surface can never diverge from the published one by any act performed here |
 | one declared version that several shipped artifacts already share | the version exists and does not *discriminate*, so it cannot be what anybody selects |
 
@@ -123,7 +123,7 @@ can check it without having been here:
 | `publish = false`, no `--version`, no tag | any of those three changes |
 | consumer holds only a URL | a consumer starts selecting a version, or the service reports one it can select |
 | no canonical version | a single inherited version appears and the artifacts carry it |
-| installed only from a checkout | a `cargo publish`, a tag, or a first object under `stado://releases/<product>/<version>/<platform>/` |
+| installed only from a checkout | a crates.io publish (`stado product deliver crates-io`), a tag, or a first object under `stado://releases/<product>/<version>/<platform>/` |
 
 Every refusal in this fleet is one workflow edit away from being wrong. Written this
 way, it is revoked by observation instead of by somebody remembering.
